@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Perception Study</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:          #0E0C0A;
+      --surface:     #181512;
+      --surface2:    #221D16;
+      --text:        #EAE3D5;
+      --muted:       #7A6E5C;
+      --accent:      #C8923A;
+      --accent-hi:   #E0A840;
+      --accent-glow: rgba(200, 146, 58, 0.20);
+      --green:       #5BA97A;
+      --red:         #C05858;
+      --border:      rgba(200, 146, 58, 0.18);
+      --mono:        'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --serif:       'EB Garamond', Georgia, 'Times New Roman', serif;
+      --r:           4px;
+      --transition:  0.16s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E");
+      z-index: 9000;
+    }
+
+    #exp-rail {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--surface2); z-index: 9001;
+    }
+    #exp-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #jspsych-display-element {
+      background: var(--bg) !important;
+      color: var(--text) !important;
+      font-family: var(--serif) !important;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .jspsych-content-wrapper { width: 100%; padding: 72px 32px; }
+    .jspsych-content { max-width: 700px !important; margin: 0 auto; text-align: center; }
+
+    .jspsych-content h2 {
+      font-family: var(--serif); font-size: 2.3em; font-weight: 500;
+      letter-spacing: -0.01em; color: var(--text); line-height: 1.2; margin-bottom: 1.1em;
+    }
+    .jspsych-content h3 {
+      font-family: var(--serif); font-size: 1.7em; font-weight: 500;
+      color: var(--text); line-height: 1.25; margin-bottom: 0.9em;
+    }
+    .jspsych-content p {
+      font-family: var(--serif); font-size: 1.05em; color: var(--text);
+      line-height: 1.8; margin-bottom: 0.85em;
+    }
+    .jspsych-content div  { font-family: var(--serif); }
+    .jspsych-content strong { color: var(--accent-hi); font-weight: 600; }
+    .jspsych-content em   { font-style: italic; }
+
+    .part-chip {
+      display: inline-block;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); border: 1px solid var(--border);
+      border-radius: 2px; padding: 4px 11px; margin-bottom: 22px;
+    }
+
+    .jspsych-btn {
+      font-family: var(--serif) !important; font-size: 1.05em !important; font-weight: 500 !important;
+      background: transparent !important; color: var(--accent) !important;
+      border: 1.5px solid var(--accent) !important; border-radius: var(--r) !important;
+      padding: 12px 30px !important; margin: 7px !important; cursor: pointer !important;
+      letter-spacing: 0.025em !important;
+      transition: background var(--transition), color var(--transition) !important;
+    }
+    .jspsych-btn:hover  { background: var(--accent) !important; color: var(--bg) !important; }
+    .jspsych-btn:active { background: var(--accent-hi) !important; color: var(--bg) !important; transform: scale(0.98); }
+    .jspsych-btn-pane .jspsych-btn:only-child { padding: 14px 44px !important; }
+
+    .choice-btn {
+      font-family: var(--mono) !important; font-size: 1.4em !important;
+      font-weight: 500 !important; letter-spacing: 3px !important;
+      padding: 18px 44px !important; min-width: 185px !important; margin: 10px !important;
+    }
+
+    .lextale-word {
+      font-family: var(--mono); font-size: 60px; font-weight: 700;
+      letter-spacing: 10px; color: var(--accent); text-align: center;
+      margin: 50px 0 58px;
+      text-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(200,146,58,0.08);
+      animation: stim-in 0.13s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .big-digit {
+      font-family: var(--mono); font-size: 108px; font-weight: 700;
+      color: var(--text); text-align: center; line-height: 1.1;
+      text-shadow: 0 0 80px rgba(234,227,213,0.08);
+      animation: stim-in 0.1s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @keyframes stim-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0)   scale(1);    }
+    }
+
+    .listen-indicator {
+      font-family: var(--serif); font-size: 12.5px; color: var(--muted);
+      margin-top: 88px; text-align: center; letter-spacing: 0.15em; text-transform: uppercase;
+    }
+    .listen-indicator::before {
+      content: ''; display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--accent); margin-right: 10px;
+      vertical-align: middle; animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.75); }
+      50%       { opacity: 1;   transform: scale(1.3);  }
+    }
+
+    .iti-cross { font-size: 22px; color: var(--muted); text-align: center; opacity: 0.35; }
+
+    ::placeholder { color: var(--muted); opacity: 0.55; }
+    input[type="text"], input[type="number"], select {
+      background: var(--surface) !important; border: 1px solid var(--border) !important;
+      color: var(--text) !important; font-family: var(--serif) !important;
+      font-size: 1em !important; padding: 10px 14px !important;
+      border-radius: var(--r) !important; outline: none !important;
+      transition: border-color var(--transition), box-shadow var(--transition) !important;
+      -webkit-appearance: none; appearance: none;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-glow) !important;
+    }
+    input[type="text"]   { text-align: center; width: 260px !important; }
+    input[type="number"] { width: 84px !important; }
+    select option { background: var(--surface); color: var(--text); }
+
+    table { border-collapse: separate; border-spacing: 10px 16px; }
+    td    { font-family: var(--serif); color: var(--text); vertical-align: middle; }
+
+    audio {
+      filter: invert(0.82) hue-rotate(175deg) brightness(0.85);
+      border-radius: 30px; display: block; margin: 20px auto; width: 280px;
+    }
+
+    .jspsych-loading-progress-bar-container {
+      background: var(--surface2) !important; border-radius: 2px !important;
+      border: none !important; height: 3px !important; width: 300px !important;
+      margin: 16px auto !important;
+    }
+    .jspsych-loading-progress-bar {
+      background: linear-gradient(90deg, var(--accent), var(--accent-hi)) !important;
+      border-radius: 2px !important; height: 3px !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="exp-rail"><div id="exp-fill"></div></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
