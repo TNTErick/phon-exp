@@ -54,17 +54,31 @@ async def synthesize_all() -> None:
     print("  Done.")
 
 
-def build_calibration_tone() -> None:
-    """440 Hz sine wave, 1 second, saved as calibration.wav."""
-    sample_rate = 44100
-    t = np.linspace(0, 1.0, sample_rate, endpoint=False)
-    wave = (np.sin(2 * math.pi * 440 * t) * 0.35 * 32767).astype(np.int16)
-    audio = AudioSegment(
-        wave.tobytes(), frame_rate=sample_rate, sample_width=2, channels=1
-    )
-    out = os.path.join(OUT_DIR, "calibration.wav")
-    audio.export(out, format="wav")
-    print(f"  Calibration tone → {out}")
+VOLUME_CHECK_TEXT = (
+    "This is a sound check for the speech memory study. "
+    "You will hear short nonsense words like brep, felk, and slem. "
+    "Please adjust your volume now until this voice sounds clear and comfortable — "
+    "not too quiet, not too loud. "
+    "When you are ready, press continue."
+)
+
+
+async def build_volume_check() -> None:
+    """TTS passage for volume calibration, same voice as stimuli."""
+    try:
+        import edge_tts
+    except ImportError:
+        sys.exit("edge-tts not found. Run: pip install edge-tts")
+    mp3 = os.path.join(OUT_DIR, "volume_check.mp3")
+    communicate = edge_tts.Communicate(VOLUME_CHECK_TEXT, VOICE, rate=RATE)
+    await communicate.save(mp3)
+    seg = AudioSegment.from_mp3(mp3)
+    delta = -20.0 - seg.dBFS
+    normalized = seg.apply_gain(delta)
+    out = os.path.join(OUT_DIR, "volume_check.wav")
+    normalized.export(out, format="wav")
+    os.remove(mp3)
+    print(f"  Volume check passage → {out}  ({seg.duration_seconds:.1f}s)")
 
 
 def normalize_all() -> None:
@@ -98,7 +112,7 @@ def normalize_all() -> None:
 
 def main() -> None:
     asyncio.run(synthesize_all())
-    build_calibration_tone()
+    asyncio.run(build_volume_check())
     normalize_all()
 
     print("\n=== Done ===")

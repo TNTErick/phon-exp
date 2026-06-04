@@ -16,7 +16,7 @@ export function buildTimeline(jsPsych) {
   // ── PRELOAD ────────────────────────────────────────────────────────────
   tl.push({
     type: preload,
-    audio: [...ITEMS.map(x => x.audio), `${BASE}stimuli/calibration.wav`],
+    audio: [...ITEMS.map(x => x.audio), `${BASE}stimuli/volume_check.wav`],
     show_progress_bar: true,
     message: `<p style="font-family:'EB Garamond',serif;color:#7A6E5C;font-size:15px;letter-spacing:.08em">Preparing audio…</p>`,
     error_message: `<p style="color:#C05858;font-family:'EB Garamond',serif">Audio failed to load. Check that the stimuli/ folder is present.</p>`,
@@ -73,18 +73,22 @@ export function buildTimeline(jsPsych) {
   });
 
   // ── VOLUME CHECK ──────────────────────────────────────────────────────
+  // Uses the same TTS voice as stimuli so participants calibrate to speech.
   tl.push({
     type: htmlButtonResponse,
     stimulus: `
       <h3>Volume Check</h3>
-      <p>Put on headphones if you have them. Press Play below.</p>
-      <audio controls>
-        <source src="${BASE}stimuli/calibration.wav" type="audio/wav">
+      <p>Headphones or earphones are strongly recommended.</p>
+      <p>Press Play and <strong>adjust your volume</strong> until the voice sounds
+         <strong>clear and comfortable</strong> — not too quiet, not too loud.</p>
+      <audio controls style="margin:24px auto">
+        <source src="${BASE}stimuli/volume_check.wav" type="audio/wav">
       </audio>
-      <p>Adjust volume so the tone is <strong>clear and comfortable</strong>.<br>
-         Clear audio is essential for this study.</p>
+      <p style="color:var(--muted);font-size:.9em">
+        This is the same voice you will hear throughout the study.
+      </p>
     `,
-    choices: ['Audio is clear — continue'],
+    choices: ['Voice is clear — continue'],
     data: { task: 'volume_check' },
   });
 
@@ -151,8 +155,8 @@ export function buildTimeline(jsPsych) {
   // ── NOISE GATE ────────────────────────────────────────────────────────
   // Show only if noise exceeds soft threshold. Records warning exposure
   // and participant choice as data quality flags.
-  const NOISE_SOFT = -40;  // dBFS — somewhat noisy, soft warning
-  const NOISE_HARD = -30;  // dBFS — too noisy, strong warning
+  const NOISE_SOFT = -55;  // dBFS — soft warning: moderate room noise
+  const NOISE_HARD = -45;  // dBFS — hard warning: clearly loud environment
 
   tl.push({
     timeline: [{
