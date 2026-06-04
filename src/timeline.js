@@ -6,6 +6,7 @@ import preload from '@jspsych/plugin-preload';
 
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
 import { shuffle, buildInterleavedTrials, buildDigitSequences } from './trials.js';
+import { measureAmbientNoise } from './noise.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -58,6 +59,14 @@ export function buildTimeline(jsPsych) {
                   <option value="no">No</option>
                   <option value="yes">Yes</option>
                 </select></td></tr>
+        <tr><td>Environment noise now</td>
+            <td><select name="noise_self_report">
+                  <option value="1">1 — Silent</option>
+                  <option value="2">2 — Quiet</option>
+                  <option value="3" selected>3 — Moderate</option>
+                  <option value="4">4 — Noisy</option>
+                  <option value="5">5 — Very noisy</option>
+                </select></td></tr>
       </table>
     `,
     button_label: 'Continue',
@@ -78,6 +87,62 @@ export function buildTimeline(jsPsych) {
     `,
     choices: ['Audio is clear — continue'],
     data: { task: 'volume_check' },
+  });
+
+  // ── NOISE CHECK ───────────────────────────────────────────────────────
+  // Measures ambient RMS via microphone for 3 s.
+  // No audio is recorded — only the noise level number is stored.
+  // Auto-advances after 4.5 s (0.5 s buffer after measurement).
+  tl.push({
+    type: htmlKeyboardResponse,
+    stimulus: `
+      <h3>Environment Check</h3>
+      <p style="max-width:480px;margin:0 auto .8em">
+        We will briefly measure your ambient noise level via microphone.<br>
+        <span style="color:var(--muted);font-size:.9em">No audio is recorded — only a single number.</span>
+      </p>
+      <div id="noise-status" style="
+        font-family:var(--mono);font-size:1.1em;letter-spacing:.08em;
+        color:var(--muted);margin:32px 0 8px;min-height:2em">
+        Requesting microphone…
+      </div>
+      <div id="noise-bar-wrap" style="
+        width:260px;height:3px;background:var(--surface2);
+        margin:0 auto;border-radius:2px;overflow:hidden">
+        <div id="noise-bar" style="
+          height:100%;width:0%;
+          background:linear-gradient(90deg,var(--accent),var(--accent-hi));
+          transition:width 3s linear"></div>
+      </div>
+    `,
+    choices: 'NO_KEYS',
+    trial_duration: 4500,
+    data: { task: 'noise_check' },
+    on_load() {
+      // Kick off progress bar animation
+      requestAnimationFrame(() => {
+        const bar = document.getElementById('noise-bar');
+        if (bar) bar.style.width = '100%';
+      });
+
+      measureAmbientNoise(3000)
+        .then(({ rms, dbfs }) => {
+          const el = document.getElementById('noise-status');
+          if (el) {
+            const label = dbfs > -30 ? 'Noisy' : dbfs > -45 ? 'Moderate' : 'Quiet';
+            el.innerHTML =
+              `<span style="color:var(--accent)">${dbfs}&thinsp;dBFS</span>` +
+              `<span style="color:var(--muted);font-size:.8em;margin-left:12px">${label}</span>`;
+          }
+          jsPsych.data.addProperties({ ambient_noise_dbfs: dbfs, ambient_noise_rms: rms });
+        })
+        .catch(err => {
+          const el = document.getElementById('noise-status');
+          if (el) el.innerHTML =
+            `<span style="color:var(--muted);font-size:.9em">Mic unavailable (${err.name})</span>`;
+          jsPsych.data.addProperties({ ambient_noise_dbfs: null, ambient_noise_rms: null });
+        });
+    },
   });
 
   // ── PART 1: LexTALE ───────────────────────────────────────────────────
