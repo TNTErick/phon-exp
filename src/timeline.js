@@ -59,13 +59,12 @@ export function buildTimeline(jsPsych) {
                   <option value="no">No</option>
                   <option value="yes">Yes</option>
                 </select></td></tr>
-        <tr><td>Environment noise now</td>
-            <td><select name="noise_self_report">
-                  <option value="1">1 — Silent</option>
-                  <option value="2">2 — Quiet</option>
-                  <option value="3" selected>3 — Moderate</option>
-                  <option value="4">4 — Noisy</option>
-                  <option value="5">5 — Very noisy</option>
+        <tr><td>Audio device</td>
+            <td><select name="audio_device">
+                  <option value="headphones">Headphones / earphones</option>
+                  <option value="speakers">External speakers</option>
+                  <option value="laptop">Laptop / built-in speakers</option>
+                  <option value="phone">Phone speaker</option>
                 </select></td></tr>
       </table>
     `,
