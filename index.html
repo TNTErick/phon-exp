@@ -182,6 +182,44 @@
       background: linear-gradient(90deg, var(--accent), var(--accent-hi)) !important;
       border-radius: 2px !important; height: 3px !important;
     }
+
+    /* ── RESPONSIVE ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      html, body { font-size: 16px; }
+
+      .jspsych-content-wrapper { padding: 40px 16px; }
+      .jspsych-content h2 { font-size: 1.8em; }
+      .jspsych-content h3 { font-size: 1.4em; }
+
+      /* LexTALE word fits within ~340px */
+      .lextale-word { font-size: 36px; letter-spacing: 5px; margin: 28px 0 36px; }
+
+      /* Big digit still readable */
+      .big-digit { font-size: 72px; }
+
+      /* Stack choice buttons vertically */
+      .jspsych-btn-pane {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+      }
+      .choice-btn {
+        min-width: 200px !important;
+        width: 80vw !important;
+        max-width: 320px !important;
+        padding: 16px 20px !important;
+        font-size: 1.2em !important;
+        letter-spacing: 2px !important;
+      }
+
+      /* Forms */
+      input[type="text"]   { width: 85vw !important; max-width: 280px !important; }
+      input[type="number"] { width: 70px !important; }
+
+      /* Wider table layout */
+      table { border-spacing: 8px 12px; }
+    }
   </style>
 </head>
 <body>
