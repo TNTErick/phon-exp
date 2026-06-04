@@ -7,7 +7,6 @@ import preload from '@jspsych/plugin-preload';
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
 import { shuffle, buildInterleavedTrials, generateDigits } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
-import { setupRecallUI } from './speech.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -258,7 +257,7 @@ export function buildTimeline(jsPsych) {
       <span class="part-chip">Part 2 of 3</span>
       <h3>Number Memory</h3>
       <p>You will <strong>hear</strong> a sequence of digits spoken one at a time.</p>
-      <p>After the last one, <strong>say them back in order</strong> — then type what you said.</p>
+      <p>After the last one, <strong>type them all back in order</strong>.</p>
       <p>Sequences get longer as you go. Do your best. &nbsp;<span style="color:#7A6E5C;font-size:.9em">≈ 5 minutes.</span></p>
     `,
     choices: ['Start'],
@@ -270,18 +269,8 @@ export function buildTimeline(jsPsych) {
   const DS_MIN = 3, DS_MAX = 12;
   const ds = { firstError: null, finalLen: null, errorsNow: 0, stop: false };
 
-  const RECALL_HTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:10px">
-      <button type="button" id="sr-btn" style="
-        font-family:var(--mono);font-size:.95em;letter-spacing:.06em;
-        background:transparent;color:var(--accent);border:1.5px solid var(--accent);
-        border-radius:4px;padding:10px 28px;cursor:pointer">🎤 Speak</button>
-      <div id="sr-status" style="
-        font-family:var(--mono);font-size:1.1em;letter-spacing:.12em;
-        color:var(--muted);min-height:1.6em">—</div>
-      <input name="recall" id="sr-input" type="text" inputmode="numeric"
-        autocomplete="off" placeholder="or type here">
-    </div>`;
+  const RECALL_HTML = `<input name="recall" type="text" inputmode="numeric"
+    autocomplete="off" placeholder="e.g. 4 7 2">`;
 
   function makeDigitBlock(len) {
     const blockTrials = [];
@@ -311,11 +300,10 @@ export function buildTimeline(jsPsych) {
 
       blockTrials.push({
         type: surveyHtmlForm,
-        preamble: `<p style="font-size:1.05em;margin-bottom:6px">Say the digits aloud, then type them below.</p>`,
+        preamble: `<p style="font-size:1.05em;margin-bottom:18px">Type the digits you heard, <em>in order</em>:</p>`,
         html: RECALL_HTML,
         button_label: 'Submit',
         data: { task: 'digit_recall', target, seq_len: len, trial_n: trialIdx },
-        on_load() { setupRecallUI(); },
         on_finish(data) {
           const raw = (data.response.recall || '').replace(/\s+/g, '');
           data.correct = raw === target;
