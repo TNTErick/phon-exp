@@ -61,7 +61,8 @@ export function buildTimeline(jsPsych) {
                 </select></td></tr>
         <tr><td>Audio device</td>
             <td><select name="audio_device">
-                  <option value="headphones">Headphones / earphones</option>
+                  <option value="anc">Noise-cancelling headphones / buds (ANC)</option>
+                  <option value="headphones">Regular headphones / earphones</option>
                   <option value="speakers">External speakers</option>
                   <option value="laptop">Laptop / built-in speakers</option>
                   <option value="phone">Phone speaker</option>
@@ -98,26 +99,35 @@ export function buildTimeline(jsPsych) {
   // Auto-advances after 4.5 s (0.5 s buffer after measurement).
   tl.push({
     type: htmlKeyboardResponse,
-    stimulus: `
-      <h3>Environment Check</h3>
-      <p style="max-width:480px;margin:0 auto .8em">
-        We will briefly measure your ambient noise level via microphone.<br>
-        <span style="color:var(--muted);font-size:.9em">No audio is recorded — only a single number.</span>
-      </p>
-      <div id="noise-status" style="
-        font-family:var(--mono);font-size:1.1em;letter-spacing:.08em;
-        color:var(--muted);margin:32px 0 8px;min-height:2em">
-        Requesting microphone…
-      </div>
-      <div id="noise-bar-wrap" style="
-        width:260px;height:3px;background:var(--surface2);
-        margin:0 auto;border-radius:2px;overflow:hidden">
-        <div id="noise-bar" style="
-          height:100%;width:0%;
-          background:linear-gradient(90deg,var(--accent),var(--accent-hi));
-          transition:width 3s linear"></div>
-      </div>
-    `,
+    stimulus() {
+      const demo = jsPsych.data.get().filter({ task: 'demographics' }).values()[0]?.response;
+      const isANC = demo?.audio_device === 'anc';
+      const ancNote = isANC
+        ? `<p style="color:var(--green);font-size:.88em;margin:.4em auto;max-width:420px">
+             Noise-cancelling device detected — your actual listening environment is likely better than the room measurement.
+           </p>`
+        : '';
+      return `
+        <h3>Environment Check</h3>
+        <p style="max-width:480px;margin:0 auto .8em">
+          We will briefly measure your ambient noise level via microphone.<br>
+          <span style="color:var(--muted);font-size:.9em">No audio is recorded — only a single number.</span>
+        </p>
+        ${ancNote}
+        <div id="noise-status" style="
+          font-family:var(--mono);font-size:1.1em;letter-spacing:.08em;
+          color:var(--muted);margin:32px 0 8px;min-height:2em">
+          Requesting microphone…
+        </div>
+        <div id="noise-bar-wrap" style="
+          width:260px;height:3px;background:var(--surface2);
+          margin:0 auto;border-radius:2px;overflow:hidden">
+          <div id="noise-bar" style="
+            height:100%;width:0%;
+            background:linear-gradient(90deg,var(--accent),var(--accent-hi));
+            transition:width 3s linear"></div>
+        </div>`;
+    },
     choices: 'NO_KEYS',
     trial_duration: 4500,
     data: { task: 'noise_check' },
@@ -201,8 +211,12 @@ export function buildTimeline(jsPsych) {
     }],
     conditional_function() {
       const noise = jsPsych.data.get().filter({ task: 'noise_check' }).values()[0]?.ambient_noise_dbfs;
-      // Skip gate if mic was unavailable (null) or noise is acceptable
-      return noise !== null && noise !== undefined && noise > NOISE_SOFT;
+      // Skip if mic unavailable or noise acceptable
+      if (noise === null || noise === undefined || noise <= NOISE_SOFT) return false;
+      // Skip for ANC users — room mic overstates their actual listening noise
+      const demo = jsPsych.data.get().filter({ task: 'demographics' }).values()[0]?.response;
+      if (demo?.audio_device === 'anc') return false;
+      return true;
     },
   });
 
