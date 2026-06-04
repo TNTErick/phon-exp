@@ -44,20 +44,14 @@ export function buildInterleavedTrials(n_per_condition) {
   return arrangeWithMinLag(shuffle(raw), MIN_LAG);
 }
 
-// Build digit span sequences: lengths 3–9, 2 trials each.
-export function buildDigitSequences() {
-  const seqs = [];
-  for (let len = 3; len <= 9; len++) {
-    for (let trial = 0; trial < 2; trial++) {
-      const digits = [];
-      for (let i = 0; i < len; i++) {
-        let d;
-        do { d = Math.floor(Math.random() * 9) + 1; }
-        while (digits.length > 0 && d === digits[digits.length - 1]);
-        digits.push(d);
-      }
-      seqs.push({ digits, len, trial });
-    }
+// Generate one random digit sequence of given length (no consecutive repeats).
+export function generateDigits(len) {
+  const digits = [];
+  for (let i = 0; i < len; i++) {
+    let d;
+    do { d = Math.floor(Math.random() * 9) + 1; }
+    while (digits.length > 0 && d === digits[digits.length - 1]);
+    digits.push(d);
   }
-  return seqs;
+  return digits;
 }

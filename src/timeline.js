@@ -5,7 +5,7 @@ import surveyHtmlForm from '@jspsych/plugin-survey-html-form';
 import preload from '@jspsych/plugin-preload';
 
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
-import { shuffle, buildInterleavedTrials, buildDigitSequences } from './trials.js';
+import { shuffle, buildInterleavedTrials, generateDigits } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
 import { setupRecallUI } from './speech.js';
 
@@ -265,57 +265,105 @@ export function buildTimeline(jsPsych) {
     data: { task: 'digit_span_instructions' },
   });
 
-  for (const { digits, len, trial } of buildDigitSequences()) {
-    // Auditory presentation — one digit audio per slot
-    for (let i = 0; i < digits.length; i++) {
-      tl.push({
-        type: audioKeyboardResponse,
-        stimulus: `${BASE}stimuli/digit_${digits[i]}.wav`,
-        choices: 'NO_KEYS',
-        trial_ends_after_audio: true,
-        prompt: `<p class="listen-indicator">digit ${i + 1} of ${digits.length}</p>`,
-        data: { task: 'digit_display', digit: digits[i], position: i, seq_len: len, trial_n: trial },
-      });
-      if (i < digits.length - 1) {
-        tl.push({
-          type: htmlKeyboardResponse,
-          stimulus: `<p class="iti-cross">·</p>`,
+  // Adaptive digit span: 2 trials per length, stop when both wrong.
+  // Lengths 3–12; records digit_span_first_error and digit_span_final.
+  const DS_MIN = 3, DS_MAX = 12;
+  const ds = { firstError: null, finalLen: null, errorsNow: 0, stop: false };
+
+  const RECALL_HTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:10px">
+      <button type="button" id="sr-btn" style="
+        font-family:var(--mono);font-size:.95em;letter-spacing:.06em;
+        background:transparent;color:var(--accent);border:1.5px solid var(--accent);
+        border-radius:4px;padding:10px 28px;cursor:pointer">🎤 Speak</button>
+      <div id="sr-status" style="
+        font-family:var(--mono);font-size:1.1em;letter-spacing:.12em;
+        color:var(--muted);min-height:1.6em">—</div>
+      <input name="recall" id="sr-input" type="text" inputmode="numeric"
+        autocomplete="off" placeholder="or type here">
+    </div>`;
+
+  function makeDigitBlock(len) {
+    const blockTrials = [];
+
+    for (let trialIdx = 0; trialIdx < 2; trialIdx++) {
+      const digits = generateDigits(len);
+      const target = digits.join('');
+
+      for (let i = 0; i < digits.length; i++) {
+        blockTrials.push({
+          type: audioKeyboardResponse,
+          stimulus: `${BASE}stimuli/digit_${digits[i]}.wav`,
           choices: 'NO_KEYS',
-          trial_duration: 400,
+          trial_ends_after_audio: true,
+          prompt: `<p class="listen-indicator">digit ${i + 1} of ${digits.length}</p>`,
+          data: { task: 'digit_display', digit: digits[i], position: i, seq_len: len, trial_n: trialIdx },
         });
+        if (i < digits.length - 1) {
+          blockTrials.push({
+            type: htmlKeyboardResponse,
+            stimulus: `<p class="iti-cross">·</p>`,
+            choices: 'NO_KEYS',
+            trial_duration: 400,
+          });
+        }
       }
+
+      blockTrials.push({
+        type: surveyHtmlForm,
+        preamble: `<p style="font-size:1.05em;margin-bottom:6px">Say the digits aloud, then type them below.</p>`,
+        html: RECALL_HTML,
+        button_label: 'Submit',
+        data: { task: 'digit_recall', target, seq_len: len, trial_n: trialIdx },
+        on_load() { setupRecallUI(); },
+        on_finish(data) {
+          const raw = (data.response.recall || '').replace(/\s+/g, '');
+          data.correct = raw === target;
+          data.response_cleaned = raw;
+          if (!data.correct) {
+            if (ds.firstError === null) ds.firstError = len;
+            ds.errorsNow++;
+            if (ds.errorsNow >= 2) {
+              ds.finalLen = len;
+              ds.stop = true;
+              jsPsych.data.addProperties({
+                digit_span_first_error: ds.firstError,
+                digit_span_final:       ds.finalLen,
+              });
+            }
+          }
+        },
+      });
     }
 
-    // Spoken + typed recall
-    const target_str = digits.join('');
-    tl.push({
-      type: surveyHtmlForm,
-      preamble: `<p style="font-size:1.05em;margin-bottom:6px">Say the digits aloud, then type them below.</p>`,
-      html: `
-        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:10px">
-          <button type="button" id="sr-btn" style="
-            font-family:var(--mono);font-size:.95em;letter-spacing:.06em;
-            background:transparent;color:var(--accent);border:1.5px solid var(--accent);
-            border-radius:4px;padding:10px 28px;cursor:pointer">
-            🎤 Speak
-          </button>
-          <div id="sr-status" style="
-            font-family:var(--mono);font-size:1.1em;letter-spacing:.12em;
-            color:var(--muted);min-height:1.6em">—</div>
-          <input name="recall" id="sr-input" type="text" inputmode="numeric"
-            autocomplete="off" placeholder="or type here">
-        </div>
-      `,
-      button_label: 'Submit',
-      data: { task: 'digit_recall', target: target_str, seq_len: len, trial_n: trial },
-      on_load() { setupRecallUI(); },
-      on_finish(data) {
-        const raw = (data.response.recall || '').replace(/\s+/g, '');
-        data.correct = raw === target_str;
-        data.response_cleaned = raw;
+    return {
+      timeline: blockTrials,
+      conditional_function() {
+        ds.errorsNow = 0; // reset per-length error count before block runs
+        return !ds.stop;
       },
-    });
+    };
   }
+
+  for (let len = DS_MIN; len <= DS_MAX; len++) {
+    tl.push(makeDigitBlock(len));
+  }
+
+  // Finalise if participant reached ceiling without both failing at any length
+  tl.push({
+    type: htmlKeyboardResponse,
+    stimulus: '',
+    choices: 'NO_KEYS',
+    trial_duration: 1,
+    on_start() {
+      if (!ds.stop) {
+        jsPsych.data.addProperties({
+          digit_span_first_error: ds.firstError,
+          digit_span_final:       null,   // null = ceiling reached (>= DS_MAX)
+        });
+      }
+    },
+  });
 
   // ── PART 3: MAIN TASK ─────────────────────────────────────────────────
   tl.push({
