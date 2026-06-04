@@ -165,8 +165,8 @@ export function buildTimeline(jsPsych) {
   // ── NOISE GATE ────────────────────────────────────────────────────────
   // Show only if noise exceeds soft threshold. Records warning exposure
   // and participant choice as data quality flags.
-  const NOISE_SOFT = -55;  // dBFS — soft warning: moderate room noise
-  const NOISE_HARD = -45;  // dBFS — hard warning: clearly loud environment
+  const NOISE_SOFT = -24;  // dBFS — soft warning: noticeably noisy
+  const NOISE_HARD = -18;  // dBFS — hard warning: very loud environment
 
   tl.push({
     timeline: [{
