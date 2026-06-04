@@ -67,7 +67,18 @@
       justify-content: center;
     }
 
-    .jspsych-content-wrapper { width: 100%; padding: 72px 32px; }
+    .jspsych-content-wrapper {
+      width: 100%; padding: 72px 32px;
+      pointer-events: none; /* block accidental clicks on stimulus area */
+    }
+    /* Re-enable only for genuinely interactive elements */
+    .jspsych-content-wrapper button,
+    .jspsych-content-wrapper input,
+    .jspsych-content-wrapper select,
+    .jspsych-content-wrapper textarea,
+    .jspsych-content-wrapper audio {
+      pointer-events: auto;
+    }
     .jspsych-content { max-width: 700px !important; margin: 0 auto; text-align: center; }
 
     .jspsych-content h2 {
