@@ -126,7 +126,7 @@ export function buildTimeline(jsPsych) {
       });
 
       measureAmbientNoise(3000)
-        .then(({ rms, dbfs }) => {
+        .then(({ rms, dbfs, dbfs_samples }) => {
           const el = document.getElementById('noise-status');
           if (el) {
             const label = dbfs > -30 ? 'Noisy' : dbfs > -45 ? 'Moderate' : 'Quiet';
@@ -134,7 +134,11 @@ export function buildTimeline(jsPsych) {
               `<span style="color:var(--accent)">${dbfs}&thinsp;dBFS</span>` +
               `<span style="color:var(--muted);font-size:.8em;margin-left:12px">${label}</span>`;
           }
-          jsPsych.data.addProperties({ ambient_noise_dbfs: dbfs, ambient_noise_rms: rms });
+          jsPsych.data.addProperties({
+            ambient_noise_dbfs: dbfs,
+            ambient_noise_rms: rms,
+            ambient_noise_samples: JSON.stringify(dbfs_samples),
+          });
         })
         .catch(err => {
           const el = document.getElementById('noise-status');

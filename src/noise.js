@@ -28,5 +28,7 @@ export async function measureAmbientNoise(duration_ms = 3000) {
 
   const meanRms = samples.reduce((a, b) => a + b, 0) / samples.length;
   const dbfs = 20 * Math.log10(Math.max(meanRms, 1e-10));
-  return { rms: meanRms, dbfs: Math.round(dbfs * 10) / 10 };
+  // Convert each RMS sample to dBFS for the raw time series
+  const dbfs_samples = samples.map(r => Math.round(20 * Math.log10(Math.max(r, 1e-10)) * 10) / 10);
+  return { rms: meanRms, dbfs: Math.round(dbfs * 10) / 10, dbfs_samples };
 }
