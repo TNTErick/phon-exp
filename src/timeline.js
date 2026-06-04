@@ -148,6 +148,60 @@ export function buildTimeline(jsPsych) {
     },
   });
 
+  // ── NOISE GATE ────────────────────────────────────────────────────────
+  // Show only if noise exceeds soft threshold. Records warning exposure
+  // and participant choice as data quality flags.
+  const NOISE_SOFT = -40;  // dBFS — somewhat noisy, soft warning
+  const NOISE_HARD = -30;  // dBFS — too noisy, strong warning
+
+  tl.push({
+    timeline: [{
+      type: htmlButtonResponse,
+      stimulus() {
+        const noise = jsPsych.data.get().filter({ task: 'noise_check' }).values()[0]?.ambient_noise_dbfs;
+        const hard = noise > NOISE_HARD;
+        return `
+          <h3 style="color:${hard ? 'var(--red)' : 'var(--accent)'}">
+            ${hard ? '⚠ Environment too noisy' : '⚠ Somewhat noisy'}
+          </h3>
+          <p style="max-width:480px;margin:0 auto">
+            Your measured noise level is
+            <strong style="font-family:var(--mono)">${noise}&thinsp;dBFS</strong>.
+            ${hard
+              ? 'This is likely to interfere with the audio task. <strong>Please find a quieter environment</strong>, then reload the page to start again.'
+              : 'This may slightly affect the audio task. A quieter environment is recommended.'}
+          </p>
+          <p style="color:var(--muted);font-size:.88em;margin-top:12px">
+            ${hard ? 'You may still continue, but your data quality may be affected.' : 'You may continue if you cannot find a quieter spot.'}
+          </p>
+        `;
+      },
+      choices() {
+        const noise = jsPsych.data.get().filter({ task: 'noise_check' }).values()[0]?.ambient_noise_dbfs;
+        return noise > NOISE_HARD
+          ? ['Continue anyway', 'Exit and retry']
+          : ['Continue', 'I\'ll find a quieter place first'];
+      },
+      data: { task: 'noise_gate' },
+      on_finish(data) {
+        const noise = jsPsych.data.get().filter({ task: 'noise_check' }).values()[0]?.ambient_noise_dbfs;
+        data.noise_level = noise;
+        data.noise_hard_warning = noise > NOISE_HARD;
+        // response 0 = continue, 1 = exit/retry
+        data.chose_to_continue = data.response === 0;
+        if (!data.chose_to_continue) {
+          // Participant chose to exit — end experiment
+          jsPsych.endExperiment('You can reload the page when you are in a quieter environment.');
+        }
+      },
+    }],
+    conditional_function() {
+      const noise = jsPsych.data.get().filter({ task: 'noise_check' }).values()[0]?.ambient_noise_dbfs;
+      // Skip gate if mic was unavailable (null) or noise is acceptable
+      return noise !== null && noise !== undefined && noise > NOISE_SOFT;
+    },
+  });
+
   // ── PART 1: LexTALE ───────────────────────────────────────────────────
   tl.push({
     type: htmlButtonResponse,
