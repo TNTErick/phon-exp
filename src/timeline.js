@@ -7,6 +7,7 @@ import preload from '@jspsych/plugin-preload';
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
 import { shuffle, buildInterleavedTrials, buildDigitSequences } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
+import { setupRecallUI } from './speech.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -16,7 +17,11 @@ export function buildTimeline(jsPsych) {
   // ── PRELOAD ────────────────────────────────────────────────────────────
   tl.push({
     type: preload,
-    audio: [...ITEMS.map(x => x.audio), `${BASE}stimuli/volume_check.wav`],
+    audio: [
+    ...ITEMS.map(x => x.audio),
+    `${BASE}stimuli/volume_check.wav`,
+    ...[1,2,3,4,5,6,7,8,9].map(n => `${BASE}stimuli/digit_${n}.wav`),
+  ],
     show_progress_bar: true,
     message: `<p style="font-family:'EB Garamond',serif;color:#7A6E5C;font-size:15px;letter-spacing:.08em">Preparing audio…</p>`,
     error_message: `<p style="color:#C05858;font-family:'EB Garamond',serif">Audio failed to load. Check that the stimuli/ folder is present.</p>`,
@@ -252,8 +257,8 @@ export function buildTimeline(jsPsych) {
     stimulus: `
       <span class="part-chip">Part 2 of 3</span>
       <h3>Number Memory</h3>
-      <p>Digits will appear on screen one at a time.</p>
-      <p>After the last one disappears, <strong>type them all back in order</strong>.</p>
+      <p>You will <strong>hear</strong> a sequence of digits spoken one at a time.</p>
+      <p>After the last one, <strong>say them back in order</strong> — then type what you said.</p>
       <p>Sequences get longer as you go. Do your best. &nbsp;<span style="color:#7A6E5C;font-size:.9em">≈ 5 minutes.</span></p>
     `,
     choices: ['Start'],
@@ -261,28 +266,49 @@ export function buildTimeline(jsPsych) {
   });
 
   for (const { digits, len, trial } of buildDigitSequences()) {
+    // Auditory presentation — one digit audio per slot
     for (let i = 0; i < digits.length; i++) {
       tl.push({
-        type: htmlKeyboardResponse,
-        stimulus: `<div class="big-digit">${digits[i]}</div>`,
+        type: audioKeyboardResponse,
+        stimulus: `${BASE}stimuli/digit_${digits[i]}.wav`,
         choices: 'NO_KEYS',
-        trial_duration: 1000,
+        trial_ends_after_audio: true,
+        prompt: `<p class="listen-indicator">digit ${i + 1} of ${digits.length}</p>`,
         data: { task: 'digit_display', digit: digits[i], position: i, seq_len: len, trial_n: trial },
       });
-      tl.push({
-        type: htmlKeyboardResponse,
-        stimulus: `<div class="big-digit" style="color:transparent">0</div>`,
-        choices: 'NO_KEYS',
-        trial_duration: 250,
-      });
+      if (i < digits.length - 1) {
+        tl.push({
+          type: htmlKeyboardResponse,
+          stimulus: `<p class="iti-cross">·</p>`,
+          choices: 'NO_KEYS',
+          trial_duration: 400,
+        });
+      }
     }
+
+    // Spoken + typed recall
     const target_str = digits.join('');
     tl.push({
       type: surveyHtmlForm,
-      preamble: `<p style="font-size:1.05em;margin-bottom:18px">Type the numbers you saw, <em>in order</em>:</p>`,
-      html: `<input name="recall" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 4 7 2">`,
+      preamble: `<p style="font-size:1.05em;margin-bottom:6px">Say the digits aloud, then type them below.</p>`,
+      html: `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:10px">
+          <button type="button" id="sr-btn" style="
+            font-family:var(--mono);font-size:.95em;letter-spacing:.06em;
+            background:transparent;color:var(--accent);border:1.5px solid var(--accent);
+            border-radius:4px;padding:10px 28px;cursor:pointer">
+            🎤 Speak
+          </button>
+          <div id="sr-status" style="
+            font-family:var(--mono);font-size:1.1em;letter-spacing:.12em;
+            color:var(--muted);min-height:1.6em">—</div>
+          <input name="recall" id="sr-input" type="text" inputmode="numeric"
+            autocomplete="off" placeholder="or type here">
+        </div>
+      `,
       button_label: 'Submit',
       data: { task: 'digit_recall', target: target_str, seq_len: len, trial_n: trial },
+      on_load() { setupRecallUI(); },
       on_finish(data) {
         const raw = (data.response.recall || '').replace(/\s+/g, '');
         data.correct = raw === target_str;

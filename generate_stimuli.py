@@ -46,11 +46,38 @@ async def synthesize_one(word: str, out_mp3: str) -> None:
     await communicate.save(out_mp3)
 
 
+DIGIT_WORDS = {
+    '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
+    '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+}
+
+
 async def synthesize_all() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     print(f"Synthesizing {len(WORDS)} words with voice '{VOICE}'...")
     tasks = [synthesize_one(w, os.path.join(OUT_DIR, f"{w}.mp3")) for w in WORDS]
     await asyncio.gather(*tasks)
+    print("  Done.")
+
+
+async def synthesize_digits() -> None:
+    """Synthesize spoken digits 1–9 for auditory digit span."""
+    os.makedirs(OUT_DIR, exist_ok=True)
+    print("Synthesizing digits 1–9...")
+    tasks = [
+        synthesize_one(word, os.path.join(OUT_DIR, f"digit_{n}.mp3"))
+        for n, word in DIGIT_WORDS.items()
+    ]
+    await asyncio.gather(*tasks)
+    for n in DIGIT_WORDS:
+        mp3 = os.path.join(OUT_DIR, f"digit_{n}.mp3")
+        if not os.path.exists(mp3):
+            continue
+        seg = AudioSegment.from_mp3(mp3)
+        delta = -20.0 - seg.dBFS
+        seg.apply_gain(delta).export(os.path.join(OUT_DIR, f"digit_{n}.wav"), format="wav")
+        os.remove(mp3)
+        print(f"  digit_{n}.wav ({DIGIT_WORDS[n]})")
     print("  Done.")
 
 
@@ -112,6 +139,7 @@ def normalize_all() -> None:
 
 def main() -> None:
     asyncio.run(synthesize_all())
+    asyncio.run(synthesize_digits())
     asyncio.run(build_volume_check())
     normalize_all()
 
