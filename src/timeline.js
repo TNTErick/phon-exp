@@ -266,7 +266,7 @@ export function buildTimeline(jsPsych) {
 
   // Adaptive digit span: 2 trials per length, stop when both wrong.
   // Lengths 3–12; records digit_span_first_error and digit_span_final.
-  const DS_MIN = 3, DS_MAX = 12;
+  const DS_MIN = 1, DS_MAX = 12;
   const ds = { firstError: null, finalLen: null, errorsNow: 0, stop: false };
 
   const RECALL_HTML = `<input name="recall" type="text" inputmode="numeric"
@@ -304,6 +304,10 @@ export function buildTimeline(jsPsych) {
         html: RECALL_HTML,
         button_label: 'Submit',
         data: { task: 'digit_recall', target, seq_len: len, trial_n: trialIdx },
+        on_load() {
+          const input = document.querySelector('input[name="recall"]');
+          if (input) input.focus();
+        },
         on_finish(data) {
           const raw = (data.response.recall || '').replace(/\s+/g, '');
           data.correct = raw === target;
