@@ -5,7 +5,7 @@ import surveyHtmlForm from '@jspsych/plugin-survey-html-form';
 import preload from '@jspsych/plugin-preload';
 
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
-import { shuffle, generateDigits } from './trials.js';
+import { shuffle, generateDigits, buildInterleavedTrials } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -354,127 +354,58 @@ export function buildTimeline(jsPsych) {
   });
 
   // ── PART 3: MAIN TASK ─────────────────────────────────────────────────
-  // Session = 10-syllable study list (one condition) + 5-probe memory test.
-  // Each study trial: hear syllable → choose from 3 options (same condition).
-  // Test: 5 × 2-AFC — which of two was in the list?
-  // 2 sessions (CCVC + CVCC), order counterbalanced.
+  // Probed serial recognition, N=6 per list (phonological loop sweet spot;
+  // Baddeley et al. 1975; Treiman & Danis 1988 used 4–6).
+  //
+  // Trial: hear 6 syllables (same condition) → 2-AFC: which was in the list?
+  // Probe = randomly drawn from the 6; foil = minimal-pair partner.
+  // 20 trials per condition × 2 = 40 main trials, interleaved, lag-constrained.
 
-  const N_STUDY  = 10;  // syllables per session
-  const N_TEST   = 5;   // memory probes per session
-  const N_CHOICES = 3;  // options shown at encoding (target + distractors)
+  const SEQ_LEN = 6;
 
-  const ISI = { type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
-                choices: 'NO_KEYS', trial_duration: 600 };
-
-  // Build one encoding trial: hear target → choose from N_CHOICES same-condition items
-  function encodingTrial(target, pool, task, extra = {}) {
-    const distractors = shuffle(pool.filter(x => x.id !== target.id)).slice(0, N_CHOICES - 1);
-    const choices = shuffle([target, ...distractors]);
-    return [
-      {
-        type: audioKeyboardResponse,
-        stimulus: target.audio,
-        choices: 'NO_KEYS',
-        trial_ends_after_audio: true,
-        prompt: `<p class="listen-indicator">listen</p>`,
-        data: { task: task + '_listen', item_id: target.id, condition: target.condition, ...extra },
-      },
-      {
-        type: htmlButtonResponse,
-        stimulus: `<p style="font-size:1.1em;margin-bottom:24px">Which syllable did you just hear?</p>`,
-        choices: choices.map(c => `/${c.id}/`),
-        button_html: choices.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
-        data: { task: task + '_choice', target: target.id, condition: target.condition, ...extra },
-        on_finish(data) {
-          data.correct = choices[data.response].id === target.id;
-          data.choice_order = JSON.stringify(choices.map(c => c.id));
-        },
-      },
-      ISI,
-    ];
-  }
-
-  // Build one full session
-  function buildSession(sessionN, condition) {
-    const pool    = condition === 'CCVC' ? CCVC_ITEMS : CVCC_ITEMS;
-    const studied = shuffle(pool).slice(0, N_STUDY);
-    const studiedIds = new Set(studied.map(x => x.id));
-    const foilPool   = shuffle(pool.filter(x => !studiedIds.has(x.id)));
-    const sessionTl  = [];
-
-    // Encoding
-    studied.forEach((target, i) => {
-      sessionTl.push(...encodingTrial(target, pool, 'study',
-        { session: sessionN, position: i }));
-    });
-
-    // Transition to test
-    sessionTl.push({
-      type: htmlButtonResponse,
-      stimulus: `
-        <h3>Memory Test</h3>
-        <p>You heard <strong>${N_STUDY} syllables</strong>.</p>
-        <p>Now: choose which syllable <em>appeared in the list</em> — ${N_TEST} questions.</p>
-      `,
-      choices: ['Begin test'],
-      data: { task: 'test_start', session: sessionN, condition },
-    });
-
-    // Test: N_TEST probed 2-AFC recognition
-    const testTargets = shuffle(studied).slice(0, N_TEST);
-    testTargets.forEach((probe, i) => {
-      const foil = foilPool[i % foilPool.length];
-      const choices = shuffle([probe, foil]);
-      sessionTl.push(
-        {
-          type: htmlButtonResponse,
-          stimulus: `<p style="font-size:1.1em;margin-bottom:24px">Which of these was in the list you just heard?</p>`,
-          choices: choices.map(c => `/${c.id}/`),
-          button_html: choices.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
-          data: { task: 'test_recognition', session: sessionN, condition,
-                  probe_id: probe.id, foil_id: foil.id },
-          on_finish(data) {
-            data.correct = choices[data.response].id === probe.id;
-            data.choice_order = JSON.stringify(choices.map(c => c.id));
-          },
-        },
-        ISI,
-      );
-    });
-
-    return sessionTl;
-  }
-
-  // ── PRACTICE ──────────────────────────────────────────────────────────
+  // ── PRACTICE (3 trials, feedback) ────────────────────────────────────
   tl.push({
     type: htmlButtonResponse,
     stimulus: `
       <span class="part-chip">Part 3 of 3</span>
       <h3>Syllable Memory</h3>
-      <p>You will hear <strong>${N_STUDY} syllables</strong>, one at a time.</p>
-      <p>After each one, choose which syllable you just heard from three options.</p>
-      <p>At the end, answer <strong>${N_TEST} memory questions</strong> about the list.</p>
+      <p>You will hear <strong>${SEQ_LEN} short nonsense syllables</strong>, one at a time.</p>
+      <p>Then choose which of two options you <strong>actually heard</strong>.</p>
+      <p>Focus on the sounds — both the beginning <em>and</em> the end of each syllable.</p>
       <p style="color:#7A6E5C;font-size:.9em">Short practice with feedback first. &nbsp;≈ 15 minutes total.</p>
     `,
     choices: ['Start practice'],
     data: { task: 'main_instructions' },
   });
 
-  // 3 practice items (mix of conditions), with correctness feedback
-  const practiceItems = shuffle([CCVC_ITEMS[0], CVCC_ITEMS[0], CCVC_ITEMS[1]]);
-  for (const target of practiceItems) {
-    const pool = target.condition === 'CCVC' ? CCVC_ITEMS : CVCC_ITEMS;
-    const [listenTrial, choiceTrial, isiTrial] =
-      encodingTrial(target, pool, 'practice', {});
-    tl.push(listenTrial);
-    // Override on_finish on the choice trial to also record correct_id for feedback
-    const correct_id = target.id;
-    choiceTrial.on_finish = function(data) {
-      data.correct = JSON.parse(data.choice_order)[data.response] === correct_id;
-      data.choice_order = data.choice_order; // keep
-    };
-    tl.push(choiceTrial);
-    // Feedback
+  const practice_trials = buildInterleavedTrials(2, SEQ_LEN)
+    .slice(0, 3); // 3 practice trials
+
+  for (const { seq, probe_pos, probe } of practice_trials) {
+    for (let k = 0; k < seq.length; k++) {
+      tl.push({
+        type: audioKeyboardResponse,
+        stimulus: seq[k].audio,
+        choices: 'NO_KEYS',
+        trial_ends_after_audio: true,
+        prompt: `<p class="listen-indicator">syllable ${k + 1} of ${SEQ_LEN} — listen</p>`,
+        data: { task: 'practice_listen', seq_pos: k, item_id: seq[k].id },
+      });
+      if (k < seq.length - 1) {
+        tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
+                  choices: 'NO_KEYS', trial_duration: 600 });
+      }
+    }
+    const choices_order = shuffle([probe.id, probe.foil]);
+    tl.push({
+      type: htmlButtonResponse,
+      stimulus: `<p style="font-size:1.15em;margin-bottom:28px">Which syllable did you hear in the list?</p>`,
+      choices: choices_order.map(c => `/${c}/`),
+      button_html: choices_order.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
+      data: { task: 'practice_response', target: probe.id, foil: probe.foil, condition: probe.condition },
+      on_finish(data) { data.correct = choices_order[data.response] === probe.id; },
+    });
+    const correct_id = probe.id;
     tl.push({
       type: htmlKeyboardResponse,
       stimulus() {
@@ -486,7 +417,8 @@ export function buildTimeline(jsPsych) {
       choices: 'NO_KEYS',
       trial_duration: 1500,
     });
-    tl.push(isiTrial);
+    tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
+              choices: 'NO_KEYS', trial_duration: 600 });
   }
 
   tl.push({
@@ -494,30 +426,66 @@ export function buildTimeline(jsPsych) {
     stimulus: `
       <p style="font-size:1.15em;margin-bottom:.6em">Practice complete.</p>
       <p><strong>No more feedback</strong> in the real task.</p>
+      <p style="color:#7A6E5C;font-size:.9em;margin-top:12px">Two blocks — short break between them.</p>
     `,
-    choices: ['Start Session 1'],
+    choices: ['Start Block 1'],
     data: { task: 'practice_end' },
   });
 
-  // ── SESSIONS ──────────────────────────────────────────────────────────
-  // Counterbalance condition order across participants
-  const firstCond  = Math.random() < 0.5 ? 'CCVC' : 'CVCC';
-  const conditions = [firstCond, firstCond === 'CCVC' ? 'CVCC' : 'CCVC'];
+  // ── MAIN TRIALS ───────────────────────────────────────────────────────
+  const all_trials = buildInterleavedTrials(20, SEQ_LEN);
+  const half = Math.floor(all_trials.length / 2);
 
-  conditions.forEach((cond, s) => {
-    tl.push(...buildSession(s + 1, cond));
-    if (s < conditions.length - 1) {
+  function pushMainTrials(trial_list, block_n) {
+    for (let i = 0; i < trial_list.length; i++) {
+      const { seq, probe_pos, probe } = trial_list[i];
+
+      for (let k = 0; k < seq.length; k++) {
+        tl.push({
+          type: audioKeyboardResponse,
+          stimulus: seq[k].audio,
+          choices: 'NO_KEYS',
+          trial_ends_after_audio: true,
+          prompt: `<p class="listen-indicator">syllable ${k + 1} of ${SEQ_LEN}</p>`,
+          data: { task: 'main_listen', block: block_n, trial_n: i,
+                  seq_pos: k, item_id: seq[k].id, condition: probe.condition },
+        });
+        if (k < seq.length - 1) {
+          tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
+                    choices: 'NO_KEYS', trial_duration: 600 });
+        }
+      }
+
+      const choices_order = shuffle([probe.id, probe.foil]);
       tl.push({
         type: htmlButtonResponse,
-        stimulus: `
-          <h3>Session ${s + 1} complete</h3>
-          <p>Take a short break if you like.</p>
-        `,
-        choices: [`Start Session ${s + 2}`],
-        data: { task: 'session_break', session: s + 1 },
+        stimulus: `<p style="font-size:1.15em;margin-bottom:24px">Which of these did you hear in the list?</p>`,
+        choices: choices_order.map(c => `/${c}/`),
+        button_html: choices_order.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
+        data: {
+          task: 'main_response', block: block_n, trial_n: i,
+          probe_id: probe.id, probe_foil: probe.foil,
+          condition: probe.condition, onset_n: probe.onset_n, coda_n: probe.coda_n,
+          probe_pos, choices_order: JSON.stringify(choices_order),
+        },
+        on_finish(data) { data.correct = choices_order[data.response] === probe.id; },
       });
+
+      tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">+</p>`,
+                choices: 'NO_KEYS', trial_duration: 700 });
     }
+  }
+
+  pushMainTrials(all_trials.slice(0, half), 1);
+
+  tl.push({
+    type: htmlButtonResponse,
+    stimulus: `<h3>Block 1 complete</h3><p>Take a short break if you like.</p>`,
+    choices: ['Start Block 2'],
+    data: { task: 'block_break' },
   });
+
+  pushMainTrials(all_trials.slice(half), 2);
 
   // ── END ────────────────────────────────────────────────────────────────
   tl.push({

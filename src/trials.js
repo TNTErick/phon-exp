@@ -30,14 +30,15 @@ function arrangeWithMinLag(trials, min_lag) {
   return result;
 }
 
-// Build fully interleaved CCVC+CVCC trials with MIN_LAG=7 applied.
-export function buildInterleavedTrials(n_per_condition) {
+// Build fully interleaved CCVC+CVCC trials with MIN_LAG=7.
+// seq_len: number of syllables per study list (default 6 per literature standard).
+export function buildInterleavedTrials(n_per_condition, seq_len = 6) {
   const MIN_LAG = 7;
   const raw = [];
   for (const pool of [CCVC_ITEMS, CVCC_ITEMS]) {
     for (let t = 0; t < n_per_condition; t++) {
-      const seq = shuffle(pool).slice(0, 3);
-      const probe_pos = Math.floor(Math.random() * 3);
+      const seq = shuffle(pool).slice(0, seq_len);
+      const probe_pos = Math.floor(Math.random() * seq_len);
       raw.push({ seq, probe_pos, probe: seq[probe_pos] });
     }
   }
