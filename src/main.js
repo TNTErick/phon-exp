@@ -17,10 +17,16 @@ const jsPsych = initJsPsych({
   on_finish() {
     const csv = jsPsych.data.get().csv();
 
-    // Build a lightweight summary for Web3Forms (full CSV is too large to POST).
-    // Strip the stimulus HTML column and keep only experimental response rows.
+    // Strip stimulus HTML (the only large field) and send all meaningful task rows.
+    // Excludes instruction/transition screens which have no data value.
     const rows = jsPsych.data.get()
-      .filter({ task: ['main_response', 'digit_recall', 'lextale'] })
+      .filter({ task: [
+        'demographics',
+        'lextale_practice', 'lextale',
+        'digit_recall',
+        'practice_listen', 'practice_response',
+        'main_listen', 'main_response',
+      ]})
       .ignore('stimulus')
       .csv();
 
@@ -33,8 +39,9 @@ const jsPsych = initJsPsych({
         from_name: 'Phon Experiment',
         participant_id: participantId,
         noise_dbfs: jsPsych.data.get().values()[0]?.ambient_noise_dbfs ?? null,
-        digit_span: jsPsych.data.get().values()[0]?.digit_span_final ?? null,
-        response_rows: rows,
+        digit_span_first_error: jsPsych.data.get().values()[0]?.digit_span_first_error ?? null,
+        digit_span_final: jsPsych.data.get().values()[0]?.digit_span_final ?? null,
+        data: rows,
       }),
     }).catch(() => {});
 
