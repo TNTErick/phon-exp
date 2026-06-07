@@ -56,6 +56,14 @@ DIGIT_WORDS = {
     '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
 }
 
+# Words whose spelling misleads the TTS G2P — map to alternate spelling that
+# produces the same phonemes. Filename stays the original word.
+TTS_OVERRIDE = {
+    'rept':  'repped',   # "rept" → TTS reads as "report"; "repped" → /rɛpt/ ✓
+    'gesp':  'guesp',    # "ge" → soft /dʒ/; "gue" forces hard /ɡ/ (like "guess") ✓
+    'gresp': 'gresp',    # gr- onset → g already hard, no change needed
+}
+
 VOLUME_CHECK_TEXT = (
     "This is a sound check for the speech memory study. "
     "You will hear short nonsense words like spef, fesk, and ekst. "
@@ -98,7 +106,8 @@ async def synthesize_all() -> None:
     for word in WORDS:
         mp3 = os.path.join(OUT_DIR, f"{word}.mp3")
         wav = os.path.join(OUT_DIR, f"{word}.wav")
-        await _synth_mp3(word, mp3)
+        tts_text = TTS_OVERRIDE.get(word, word)
+        await _synth_mp3(tts_text, mp3)
         dur = _mp3_to_wav(mp3, wav)
         print(f"  {word}  {dur}ms")
         await asyncio.sleep(0.4)   # avoid Microsoft rate-limit
