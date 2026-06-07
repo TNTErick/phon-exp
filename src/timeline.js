@@ -5,7 +5,7 @@ import surveyHtmlForm from '@jspsych/plugin-survey-html-form';
 import preload from '@jspsych/plugin-preload';
 
 import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE, LEXTALE_PRACTICE } from './stimuli.js';
-import { shuffle, generateDigits, buildInterleavedTrials } from './trials.js';
+import { shuffle, generateDigits, buildPracticeTrials, buildAllTrials } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -22,6 +22,7 @@ export function buildTimeline(jsPsych) {
     ...[1,2,3,4,5,6,7,8,9].map(n => `${BASE}stimuli/digit_${n}.wav`),
   ],
     show_progress_bar: true,
+    continue_after_error: true,
     message: `<p style="font-family:'EB Garamond',serif;color:#7A6E5C;font-size:15px;letter-spacing:.08em">Preparing audio…</p>`,
     error_message: `<p style="color:#C05858;font-family:'EB Garamond',serif">Audio failed to load. Check that the stimuli/ folder is present.</p>`,
   });
@@ -298,7 +299,7 @@ export function buildTimeline(jsPsych) {
 
   // Adaptive digit span: 2 trials per length, stop when both wrong.
   // Lengths 3–12; records digit_span_first_error and digit_span_final.
-  const DS_MIN = 3, DS_MAX = 12;
+  const DS_MIN = 1, DS_MAX = 12;
   const ds = { firstError: null, finalLen: null, errorsNow: 0, stop: false };
 
   const RECALL_HTML = `<input name="recall" type="text" inputmode="numeric"
@@ -320,14 +321,6 @@ export function buildTimeline(jsPsych) {
           prompt: `<p class="listen-indicator">digit ${i + 1} of ${digits.length}</p>`,
           data: { task: 'digit_display', digit: digits[i], position: i, seq_len: len, trial_n: trialIdx },
         });
-        if (i < digits.length - 1) {
-          blockTrials.push({
-            type: htmlKeyboardResponse,
-            stimulus: `<p class="iti-cross">·</p>`,
-            choices: 'NO_KEYS',
-            trial_duration: 400,
-          });
-        }
       }
 
       blockTrials.push({
@@ -389,139 +382,178 @@ export function buildTimeline(jsPsych) {
     },
   });
 
-  // ── PART 3: MAIN TASK ─────────────────────────────────────────────────
-  // Probed serial recognition, N=6 per list (phonological loop sweet spot;
-  // Baddeley et al. 1975; Treiman & Danis 1988 used 4–6).
-  //
-  // Trial: hear 6 syllables (same condition) → 2-AFC: which was in the list?
-  // Probe = randomly drawn from the 6; foil = minimal-pair partner.
-  // 20 trials per condition × 2 = 40 main trials, interleaved, lag-constrained.
+  // ── PART 3: SYLLABLE MEMORY ───────────────────────────────────────────
+  // Serial recognition: hear N syllables (same condition) → 9 yes/no probes.
+  // 28 trials across 5 conditions (CCVC/CVCC/CCCVC/CCVCC/VCCC), 7 blocks of 4.
+  // Each block is self-paced: participant starts each trial manually.
 
-  const SEQ_LEN = 6;
-
-  // ── PRACTICE (3 trials, feedback) ────────────────────────────────────
+  // ── Rest page before practice ─────────────────────────────────────────
   tl.push({
     type: htmlButtonResponse,
     stimulus: `
       <span class="part-chip">Part 3 of 3</span>
       <h3>Syllable Memory</h3>
-      <p>You will hear <strong>${SEQ_LEN} short nonsense syllables</strong>, one at a time.</p>
-      <p>Then choose which of two options you <strong>actually heard</strong>.</p>
-      <p>Focus on the sounds — both the beginning <em>and</em> the end of each syllable.</p>
-      <p style="color:#7A6E5C;font-size:.9em">Short practice with feedback first. &nbsp;≈ 15 minutes total.</p>
+      <p>You will hear a short sequence of nonsense syllables, one at a time.</p>
+      <p>Then answer <strong>9 yes/no questions</strong>: did you hear each syllable in the list?</p>
+      <p>Focus on the sounds — the beginning <em>and</em> the end of each syllable matter.</p>
+      <p style="color:#7A6E5C;font-size:.9em">Short practice with feedback first. Take a moment to rest before starting.</p>
     `,
-    choices: ['Start practice'],
+    choices: ['I am ready — start practice'],
     data: { task: 'main_instructions' },
   });
 
-  const practice_trials = buildInterleavedTrials(2, SEQ_LEN)
-    .slice(0, 3); // 3 practice trials
+  // ── Practice (2 trials, 4 probes each, with feedback) ─────────────────
+  const practice_trials = buildPracticeTrials(2);
 
-  for (const { seq, probe_pos, probe } of practice_trials) {
+  for (let pi = 0; pi < practice_trials.length; pi++) {
+    const { seq, probes, condition } = practice_trials[pi];
+
+    tl.push({
+      type: htmlButtonResponse,
+      stimulus: `<p style="color:var(--muted);font-size:.9em;margin-bottom:8px">Practice trial ${pi + 1} of ${practice_trials.length}</p>
+                 <p>Press when ready to listen.</p>`,
+      choices: ['▶  Ready'],
+      data: { task: 'practice_ready', condition },
+    });
+
     for (let k = 0; k < seq.length; k++) {
       tl.push({
         type: audioKeyboardResponse,
         stimulus: seq[k].audio,
         choices: 'NO_KEYS',
         trial_ends_after_audio: true,
-        prompt: `<p class="listen-indicator">syllable ${k + 1} of ${SEQ_LEN} — listen</p>`,
-        data: { task: 'practice_listen', seq_pos: k, item_id: seq[k].id },
+        prompt: `<p class="listen-indicator">syllable ${k + 1} of ${seq.length} — listen</p>`,
+        data: { task: 'practice_listen', seq_pos: k, item_id: seq[k].id, condition },
       });
       if (k < seq.length - 1) {
         tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
                   choices: 'NO_KEYS', trial_duration: 600 });
       }
     }
-    const choices_order = shuffle([probe.id, probe.foil]);
-    tl.push({
-      type: htmlButtonResponse,
-      stimulus: `<p style="font-size:1.15em;margin-bottom:28px">Which syllable did you hear in the list?</p>`,
-      choices: choices_order.map(c => `/${c}/`),
-      button_html: choices_order.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
-      data: { task: 'practice_response', target: probe.id, foil: probe.foil, condition: probe.condition },
-      on_finish(data) { data.correct = choices_order[data.response] === probe.id; },
-    });
-    const correct_id = probe.id;
-    tl.push({
-      type: htmlKeyboardResponse,
-      stimulus() {
-        const last = jsPsych.data.get().last(1).values()[0];
-        return last.correct
-          ? `<p style="font-size:1.5em;color:#5BA97A;font-family:'EB Garamond',serif">✓ Correct!</p>`
-          : `<p style="font-size:1.5em;color:#C05858;font-family:'EB Garamond',serif">✗ It was <span style="font-family:'JetBrains Mono',monospace">/${correct_id}/</span></p>`;
-      },
-      choices: 'NO_KEYS',
-      trial_duration: 1500,
-    });
+
+    for (const probe of probes) {
+      const p = probe;
+      tl.push({
+        type: htmlButtonResponse,
+        stimulus: `
+          <p style="font-size:1em;color:var(--muted);margin-bottom:20px">Did you hear this syllable in the list?</p>
+          <div class="lextale-word">/${p.id}/</div>
+        `,
+        choices: ['Yes — I heard it', 'No — I did not hear it'],
+        button_html: ['<button class="jspsych-btn choice-btn">%choice%</button>',
+                      '<button class="jspsych-btn choice-btn">%choice%</button>'],
+        data: { task: 'practice_response', probe_id: p.id, in_list: p.in_list,
+                foil_type: p.foil_type, condition: p.condition },
+        on_finish(data) { data.correct = (data.response === 0) === p.in_list; },
+      });
+      const was_in_list = probe.in_list;
+      tl.push({
+        type: htmlKeyboardResponse,
+        stimulus() {
+          const last = jsPsych.data.get().last(1).values()[0];
+          return last.correct
+            ? `<p style="font-size:1.4em;color:#5BA97A;font-family:'EB Garamond',serif">✓ Correct!</p>`
+            : `<p style="font-size:1.4em;color:#C05858;font-family:'EB Garamond',serif">
+                 ✗ ${was_in_list ? 'That syllable was in the list.' : 'That syllable was not in the list.'}
+               </p>`;
+        },
+        choices: 'NO_KEYS',
+        trial_duration: 1200,
+      });
+    }
+
     tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
               choices: 'NO_KEYS', trial_duration: 600 });
   }
 
+  // ── Rest page before main task ────────────────────────────────────────
   tl.push({
     type: htmlButtonResponse,
     stimulus: `
       <p style="font-size:1.15em;margin-bottom:.6em">Practice complete.</p>
-      <p><strong>No more feedback</strong> in the real task.</p>
-      <p style="color:#7A6E5C;font-size:.9em;margin-top:12px">Two blocks — short break between them.</p>
+      <p><strong>No feedback</strong> in the real task.</p>
+      <p style="color:#7A6E5C;font-size:.9em;margin-top:12px">
+        7 blocks of 4 trials — you can rest between any blocks.<br>
+        Take a moment now before starting.
+      </p>
     `,
-    choices: ['Start Block 1'],
+    choices: ['I am rested — begin Block 1'],
     data: { task: 'practice_end' },
   });
 
-  // ── MAIN TRIALS ───────────────────────────────────────────────────────
-  const all_trials = buildInterleavedTrials(20, SEQ_LEN);
-  const half = Math.floor(all_trials.length / 2);
+  // ── Main trials: 7 blocks × 4 trials ─────────────────────────────────
+  const blocks = buildAllTrials();
 
-  function pushMainTrials(trial_list, block_n) {
-    for (let i = 0; i < trial_list.length; i++) {
-      const { seq, probe_pos, probe } = trial_list[i];
+  function pushTrial(trial, block_n, trial_n) {
+    const { seq, probes, condition } = trial;
 
-      for (let k = 0; k < seq.length; k++) {
-        tl.push({
-          type: audioKeyboardResponse,
-          stimulus: seq[k].audio,
-          choices: 'NO_KEYS',
-          trial_ends_after_audio: true,
-          prompt: `<p class="listen-indicator">syllable ${k + 1} of ${SEQ_LEN}</p>`,
-          data: { task: 'main_listen', block: block_n, trial_n: i,
-                  seq_pos: k, item_id: seq[k].id, condition: probe.condition },
-        });
-        if (k < seq.length - 1) {
-          tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
-                    choices: 'NO_KEYS', trial_duration: 600 });
-        }
+    tl.push({
+      type: htmlButtonResponse,
+      stimulus: `<p style="color:var(--muted);font-size:.88em;margin-bottom:12px">
+                   Block ${block_n} of ${blocks.length} &nbsp;·&nbsp; Trial ${trial_n + 1} of ${blocks[block_n - 1].length}
+                 </p>
+                 <p>Press when ready to listen to the next sequence.</p>`,
+      choices: ['▶  Ready'],
+      data: { task: 'trial_ready', block: block_n, trial_n, condition },
+    });
+
+    for (let k = 0; k < seq.length; k++) {
+      tl.push({
+        type: audioKeyboardResponse,
+        stimulus: seq[k].audio,
+        choices: 'NO_KEYS',
+        trial_ends_after_audio: true,
+        prompt: `<p class="listen-indicator">syllable ${k + 1} of ${seq.length}</p>`,
+        data: { task: 'main_listen', block: block_n, trial_n,
+                seq_pos: k, item_id: seq[k].id, condition },
+      });
+      if (k < seq.length - 1) {
+        tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">·</p>`,
+                  choices: 'NO_KEYS', trial_duration: 600 });
       }
+    }
 
-      const choices_order = shuffle([probe.id, probe.foil]);
+    for (let q = 0; q < probes.length; q++) {
+      const p = probes[q];
       tl.push({
         type: htmlButtonResponse,
-        stimulus: `<p style="font-size:1.15em;margin-bottom:24px">Which of these did you hear in the list?</p>`,
-        choices: choices_order.map(c => `/${c}/`),
-        button_html: choices_order.map(() => '<button class="jspsych-btn choice-btn">%choice%</button>'),
+        stimulus: `
+          <p style="font-size:1em;color:var(--muted);margin-bottom:20px">Did you hear this syllable in the list?</p>
+          <div class="lextale-word">/${p.id}/</div>
+        `,
+        choices: ['Yes — I heard it', 'No — I did not hear it'],
+        button_html: ['<button class="jspsych-btn choice-btn">%choice%</button>',
+                      '<button class="jspsych-btn choice-btn">%choice%</button>'],
         data: {
-          task: 'main_response', block: block_n, trial_n: i,
-          probe_id: probe.id, probe_foil: probe.foil,
-          condition: probe.condition, onset_n: probe.onset_n, coda_n: probe.coda_n,
-          probe_pos, choices_order: JSON.stringify(choices_order),
+          task: 'main_response', block: block_n, trial_n, probe_n: q,
+          probe_id: p.id, in_list: p.in_list, foil_type: p.foil_type,
+          condition: p.condition, onset_n: p.onset_n, coda_n: p.coda_n,
         },
-        on_finish(data) { data.correct = choices_order[data.response] === probe.id; },
+        on_finish(data) { data.correct = (data.response === 0) === p.in_list; },
       });
-
-      tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">+</p>`,
-                choices: 'NO_KEYS', trial_duration: 700 });
     }
+
+    tl.push({ type: htmlKeyboardResponse, stimulus: `<p class="iti-cross">+</p>`,
+              choices: 'NO_KEYS', trial_duration: 700 });
   }
 
-  pushMainTrials(all_trials.slice(0, half), 1);
-
-  tl.push({
-    type: htmlButtonResponse,
-    stimulus: `<h3>Block 1 complete</h3><p>Take a short break if you like.</p>`,
-    choices: ['Start Block 2'],
-    data: { task: 'block_break' },
-  });
-
-  pushMainTrials(all_trials.slice(half), 2);
+  for (let b = 0; b < blocks.length; b++) {
+    if (b > 0) {
+      tl.push({
+        type: htmlButtonResponse,
+        stimulus: `
+          <h3>Block ${b} complete</h3>
+          <p>${blocks.length - b} block${blocks.length - b > 1 ? 's' : ''} remaining.</p>
+          <p style="color:#7A6E5C;font-size:.9em">Take as long as you need to rest.</p>
+        `,
+        choices: [`Continue to Block ${b + 1}`],
+        data: { task: 'block_break', block: b },
+      });
+    }
+    for (let i = 0; i < blocks[b].length; i++) {
+      pushTrial(blocks[b][i], b + 1, i);
+    }
+  }
 
   // ── END ────────────────────────────────────────────────────────────────
   tl.push({

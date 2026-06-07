@@ -32,15 +32,14 @@ export const PAIRS = [
 
 const BASE = import.meta.env.BASE_URL;
 
-export const ITEMS = PAIRS.flatMap(p => [
-  { id: p.ccvc, foil: p.cvcc, condition: 'CCVC', onset_n: 2, coda_n: 1,
-    audio: `${BASE}stimuli/${p.ccvc}.wav` },
-  { id: p.cvcc, foil: p.ccvc, condition: 'CVCC', onset_n: 1, coda_n: 2,
-    audio: `${BASE}stimuli/${p.cvcc}.wav` },
-]);
-
-export const CCVC_ITEMS = ITEMS.filter(x => x.condition === 'CCVC');
-export const CVCC_ITEMS = ITEMS.filter(x => x.condition === 'CVCC');
+export const CCVC_ITEMS = PAIRS.map(p => ({
+  id: p.ccvc, foil: p.cvcc, condition: 'CCVC', onset_n: 2, coda_n: 1,
+  audio: `${BASE}stimuli/${p.ccvc}.wav`,
+}));
+export const CVCC_ITEMS = PAIRS.map(p => ({
+  id: p.cvcc, foil: p.ccvc, condition: 'CVCC', onset_n: 1, coda_n: 2,
+  audio: `${BASE}stimuli/${p.cvcc}.wav`,
+}));
 
 // ── Phase 2: 4-consonant gradient (CCCVC vs CCVCC) ─────────────────────────
 // CCCVC: 3-onset + vowel + 1-coda (English 3-C onsets: str/spr/skr/spl)
@@ -59,12 +58,14 @@ export const CCCVC_PAIRS = [
   { cccvc: 'splek', ccvcc: 'klesp' }, { cccvc: 'splet', ccvcc: 'plest' },
 ];
 
-export const CCCVC_ITEMS = CCCVC_PAIRS.flatMap(p => [
-  { id: p.cccvc, foil: p.ccvcc, condition: 'CCCVC', onset_n: 3, coda_n: 1,
-    audio: `${BASE}stimuli/${p.cccvc}.wav` },
-  { id: p.ccvcc, foil: p.cccvc, condition: 'CCVCC', onset_n: 2, coda_n: 2,
-    audio: `${BASE}stimuli/${p.ccvcc}.wav` },
-]);
+export const CCCVC_ITEMS = CCCVC_PAIRS.map(p => ({
+  id: p.cccvc, foil: p.ccvcc, condition: 'CCCVC', onset_n: 3, coda_n: 1,
+  audio: `${BASE}stimuli/${p.cccvc}.wav`,
+}));
+export const CCVCC_ITEMS = CCCVC_PAIRS.map(p => ({
+  id: p.ccvcc, foil: p.cccvc, condition: 'CCVCC', onset_n: 2, coda_n: 2,
+  audio: `${BASE}stimuli/${p.ccvcc}.wav`,
+}));
 
 // ── VCCC gradient anchor ────────────────────────────────────────────────────
 // All-obstruent 3-C codas: {k,s,t} → ekst/ekts/eskt; {s,p,t} → espt/epts/epst
@@ -74,6 +75,14 @@ export const VCCC_ITEMS = ['ekst', 'espt', 'epts', 'epst', 'empt', 'emps', 'enks
   id, foil: null, condition: 'VCCC', onset_n: 0, coda_n: 3,
   audio: `${BASE}stimuli/${id}.wav`,
 }));
+
+// All audio stimuli — used for preloading. CCCVC/CCVCC/VCCC audio may not exist
+// yet; set continue_after_error: true in the preload trial.
+export const ITEMS = [
+  ...CCVC_ITEMS, ...CVCC_ITEMS,
+  ...CCCVC_ITEMS, ...CCVCC_ITEMS,
+  ...VCCC_ITEMS,
+];
 
 // ── LexTALE (Lemhöfer & Broersma 2012) ────────────────────────────────────
 // Official English item list extracted from LexTALE_Praat_en.zip (lextale.com).

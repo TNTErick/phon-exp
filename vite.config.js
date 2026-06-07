@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
-  // For GitHub Pages project sites: set BASE_URL env var to /repo-name/
-  // e.g. BASE_URL=/phon-experiment/ yarn build
-  // GitHub Actions sets this automatically via workflow env.
   base: process.env.BASE_URL ?? '/',
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        test: resolve(__dirname, 'test.html'),
+      },
+    },
+  },
 });
