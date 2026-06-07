@@ -34,7 +34,7 @@ CCCVC_PAIRS = [
     ("spref", "fresp"), ("spreg", "gresp"), ("sprek", "kresp"),
     ("spreb", "bresp"), ("spret", "tresp"),
     ("skref", "fresk"), ("skreg", "gresk"), ("skrep", "presk"),
-    ("skreb", "bresk"), ("skret", "tresk"),
+    ("skreb", "bresk"), ("skret", "tresk"), ("skred", "dresk"),
     ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"), ("splet", "plest"),
 ]
 

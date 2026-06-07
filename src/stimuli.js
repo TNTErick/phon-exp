@@ -53,6 +53,7 @@ export const CCCVC_PAIRS = [
   { cccvc: 'spret', ccvcc: 'tresp' },
   { cccvc: 'skref', ccvcc: 'fresk' }, { cccvc: 'skreg', ccvcc: 'gresk' },
   { cccvc: 'skrep', ccvcc: 'presk' }, { cccvc: 'skreb', ccvcc: 'bresk' },
+  { cccvc: 'skred', ccvcc: 'dresk' },
   { cccvc: 'skret', ccvcc: 'tresk' },
   { cccvc: 'splef', ccvcc: 'flesp' }, { cccvc: 'spleg', ccvcc: 'glesp' },
   { cccvc: 'splek', ccvcc: 'klesp' }, { cccvc: 'splet', ccvcc: 'plest' },
