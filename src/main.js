@@ -17,7 +17,13 @@ const jsPsych = initJsPsych({
   on_finish() {
     const csv = jsPsych.data.get().csv();
 
-    // Submit to Web3Forms — fire and forget. CSV download is the guaranteed backup.
+    // Build a lightweight summary for Web3Forms (full CSV is too large to POST).
+    // Strip the stimulus HTML column and keep only experimental response rows.
+    const rows = jsPsych.data.get()
+      .filter({ task: ['main_response', 'digit_recall', 'lextale'] })
+      .ignore('stimulus')
+      .csv();
+
     fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -26,7 +32,9 @@ const jsPsych = initJsPsych({
         subject: `Phon Experiment — ${participantId} completed`,
         from_name: 'Phon Experiment',
         participant_id: participantId,
-        csv_data: csv,
+        noise_dbfs: jsPsych.data.get().values()[0]?.ambient_noise_dbfs ?? null,
+        digit_span: jsPsych.data.get().values()[0]?.digit_span_final ?? null,
+        response_rows: rows,
       }),
     }).catch(() => {});
 
