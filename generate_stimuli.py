@@ -11,7 +11,9 @@ Output: public/stimuli/*.wav, all RMS-normalized to -20 dBFS.
 """
 
 import asyncio, os, sys
-from pydub import AudioSegment
+import numpy as np
+import soundfile as sf
+import pyloudnorm as pyln
 
 VOICE       = "en-US-EricNeural"
 RATE        = "-10%"           # slightly slower for cluster clarity
@@ -92,10 +94,20 @@ async def _synth_mp3(text: str, out_mp3: str, retries: int = 3) -> None:
 
 
 def _mp3_to_wav(mp3: str, wav: str) -> int:
-    seg = AudioSegment.from_mp3(mp3)
-    seg.apply_gain(TARGET_DBFS - seg.dBFS).export(wav, format="wav")
+    """Convert MP3 to WAV and normalize to TARGET_DBFS LUFS (BS.1770 perceptual)."""
+    from pydub import AudioSegment
+    # Convert to WAV first (temporary)
+    tmp = wav + ".tmp.wav"
+    AudioSegment.from_mp3(mp3).export(tmp, format="wav")
     os.remove(mp3)
-    return len(seg)
+    audio, sr = sf.read(tmp)
+    os.remove(tmp)
+    meter = pyln.Meter(sr)
+    loudness = meter.integrated_loudness(audio)
+    normalized = pyln.normalize.loudness(audio, loudness, TARGET_DBFS)
+    normalized = np.clip(normalized, -1.0, 1.0)
+    sf.write(wav, normalized, sr)
+    return int(len(audio) / sr * 1000)
 
 
 # -- Main synthesis functions --------------------------------------------------
