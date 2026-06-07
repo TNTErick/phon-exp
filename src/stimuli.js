@@ -55,36 +55,46 @@ export const VCCC_ITEMS = ['ekst', 'ekts', 'eskt', 'espt', 'epts', 'epst'].map(i
 }));
 
 // ── LexTALE (Lemhöfer & Broersma 2012) ────────────────────────────────────
-// 40 real words + 20 nonwords. Verify against lextale.com before publishing.
+// Official English item list extracted from LexTALE_Praat_en.zip (lextale.com).
+// 60 test items: 40 real words + 20 nonwords. British spelling (savoury, etc.).
+// Practice items (platery/denial/generic) shown separately before the test.
+export const LEXTALE_PRACTICE = [
+  { w: 'PLATERY',  real: false },  // practice nonword
+  { w: 'DENIAL',   real: true  },  // practice real word
+  { w: 'GENERIC',  real: true  },  // practice real word
+];
+
 export const LEXTALE = [
-  { w: 'BLOND',    real: true  }, { w: 'FRISK',    real: true  },
-  { w: 'STAVE',    real: true  }, { w: 'DAINTY',   real: true  },
-  { w: 'FINESSE',  real: true  }, { w: 'LOCKET',   real: true  },
-  { w: 'TRICE',    real: true  }, { w: 'WAIF',     real: true  },
-  { w: 'DUNCE',    real: true  }, { w: 'NADIR',    real: true  },
-  { w: 'ABLAZE',   real: true  }, { w: 'CRAVEN',   real: true  },
-  { w: 'GIMLET',   real: true  }, { w: 'SQUALOR',  real: true  },
-  { w: 'STAID',    real: true  }, { w: 'WINNOW',   real: true  },
-  { w: 'CLOISTER', real: true  }, { w: 'FRUGAL',   real: true  },
-  { w: 'HAPLESS',  real: true  }, { w: 'IMPASSE',  real: true  },
-  { w: 'JOCUND',   real: true  }, { w: 'LEEWAY',   real: true  },
-  { w: 'MAUDLIN',  real: true  }, { w: 'NETTLE',   real: true  },
-  { w: 'OSPREY',   real: true  }, { w: 'PEWTER',   real: true  },
-  { w: 'QUAVER',   real: true  }, { w: 'GAUNT',    real: true  },
-  { w: 'DREGS',    real: true  }, { w: 'SKULK',    real: true  },
-  { w: 'WRATH',    real: true  }, { w: 'QUALM',    real: true  },
-  { w: 'BROOD',    real: true  }, { w: 'GLOAT',    real: true  },
-  { w: 'MELEE',    real: true  }, { w: 'POUNCE',   real: true  },
-  { w: 'SLUR',     real: true  }, { w: 'CHORD',    real: true  },
-  { w: 'BATHE',    real: true  }, { w: 'GROAT',    real: true  },
-  { w: 'STEVEL',   real: false }, { w: 'FREUND',   real: false },
-  { w: 'GRAITH',   real: false }, { w: 'SLERB',    real: false },
-  { w: 'FRALT',    real: false }, { w: 'TWEAL',    real: false },
-  { w: 'PREND',    real: false }, { w: 'BLAVE',    real: false },
-  { w: 'GREEL',    real: false }, { w: 'SMIRN',    real: false },
-  { w: 'FROWL',    real: false }, { w: 'TRISP',    real: false },
-  { w: 'BLEMP',    real: false }, { w: 'SNORF',    real: false },
-  { w: 'GRULP',    real: false }, { w: 'THRENK',   real: false },
-  { w: 'SWEAL',    real: false }, { w: 'PRINK',    real: false },
-  { w: 'CHULM',    real: false }, { w: 'VOISE',    real: false },
+  // Real words (40) — items 2–60 where correct=1
+  { w: 'SCORNFUL',     real: true  }, { w: 'STOUTLY',      real: true  },
+  { w: 'ABLAZE',       real: true  }, { w: 'MOONLIT',      real: true  },
+  { w: 'LOFTY',        real: true  }, { w: 'HURRICANE',    real: true  },
+  { w: 'FLAW',         real: true  }, { w: 'UNKEMPT',      real: true  },
+  { w: 'BREEDING',     real: true  }, { w: 'FESTIVITY',    real: true  },
+  { w: 'SCREECH',      real: true  }, { w: 'SAVOURY',      real: true  },
+  { w: 'SHIN',         real: true  }, { w: 'FLUID',        real: true  },
+  { w: 'ALLIED',       real: true  }, { w: 'SLAIN',        real: true  },
+  { w: 'RECIPIENT',    real: true  }, { w: 'ELOQUENCE',    real: true  },
+  { w: 'CLEANLINESS',  real: true  }, { w: 'DISPATCH',     real: true  },
+  { w: 'INGENIOUS',    real: true  }, { w: 'BEWITCH',      real: true  },
+  { w: 'PLAINTIVELY',  real: true  }, { w: 'HASTY',        real: true  },
+  { w: 'LENGTHY',      real: true  }, { w: 'FRAY',         real: true  },
+  { w: 'UPKEEP',       real: true  }, { w: 'MAJESTIC',     real: true  },
+  { w: 'NOURISHMENT',  real: true  }, { w: 'TURMOIL',      real: true  },
+  { w: 'CARBOHYDRATE', real: true  }, { w: 'SCHOLAR',      real: true  },
+  { w: 'TURTLE',       real: true  }, { w: 'CYLINDER',     real: true  },
+  { w: 'CENSORSHIP',   real: true  }, { w: 'CELESTIAL',    real: true  },
+  { w: 'RASCAL',       real: true  }, { w: 'MUDDY',        real: true  },
+  { w: 'LISTLESS',     real: true  }, { w: 'WROUGHT',      real: true  },
+  // Nonwords (20) — items where correct=0
+  { w: 'MENSIBLE',     real: false }, { w: 'KERMSHAW',     real: false },
+  { w: 'ALBERATION',   real: false }, { w: 'PLAUDATE',     real: false },
+  { w: 'SPAUNCH',      real: false }, { w: 'EXPRATE',      real: false },
+  { w: 'REBONDICATE',  real: false }, { w: 'SKAVE',        real: false },
+  { w: 'KILP',         real: false }, { w: 'INTERFATE',    real: false },
+  { w: 'CRUMPER',      real: false }, { w: 'MAGRITY',      real: false },
+  { w: 'ABERGY',       real: false }, { w: 'PROOM',        real: false },
+  { w: 'FELLICK',      real: false }, { w: 'DESTRIPTION',  real: false },
+  { w: 'PURRAGE',      real: false }, { w: 'PULSH',        real: false },
+  { w: 'QUIRTY',       real: false }, { w: 'PUDOUR',       real: false },
 ];
