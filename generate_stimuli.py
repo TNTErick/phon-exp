@@ -93,20 +93,30 @@ async def _synth_mp3(text: str, out_mp3: str, retries: int = 3) -> None:
                 raise
 
 
+_SILENCE_THRESHOLD = 0.001   # ~-60 dBFS
+_PAD_MS            = 40      # ms to keep before onset / after offset
+
 def _mp3_to_wav(mp3: str, wav: str) -> int:
-    """Convert MP3 to WAV and normalize to TARGET_DBFS LUFS (BS.1770 perceptual)."""
+    """Convert MP3 → trim silence → LUFS-normalize → save WAV."""
     from pydub import AudioSegment
-    # Convert to WAV first (temporary)
     tmp = wav + ".tmp.wav"
     AudioSegment.from_mp3(mp3).export(tmp, format="wav")
     os.remove(mp3)
     audio, sr = sf.read(tmp)
     os.remove(tmp)
-    meter = pyln.Meter(sr)
+
+    # Trim leading/trailing silence
+    mono  = audio if audio.ndim == 1 else np.abs(audio).max(axis=1)
+    above = np.where(np.abs(mono) > _SILENCE_THRESHOLD)[0]
+    if len(above):
+        pad   = int(sr * _PAD_MS / 1000)
+        audio = audio[max(0, above[0] - pad) : min(len(audio), above[-1] + pad)]
+
+    # LUFS normalize (BS.1770)
+    meter    = pyln.Meter(sr)
     loudness = meter.integrated_loudness(audio)
-    normalized = pyln.normalize.loudness(audio, loudness, TARGET_DBFS)
-    normalized = np.clip(normalized, -1.0, 1.0)
-    sf.write(wav, normalized, sr)
+    audio    = np.clip(pyln.normalize.loudness(audio, loudness, TARGET_DBFS), -1.0, 1.0)
+    sf.write(wav, audio, sr)
     return int(len(audio) / sr * 1000)
 
 
