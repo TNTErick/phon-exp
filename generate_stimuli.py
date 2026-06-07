@@ -21,6 +21,45 @@ TARGET_DBFS = -20.0
 SAMPLE_RATE = 24000
 OUT_DIR     = "public/stimuli"
 
+# IPA pronunciations — all vowel /ɛ/ — used to bypass misaki G2P.
+# Misaki returns ❓ for most nonwords, causing Kokoro's fallback to insert a
+# spurious schwa. Patching g2p to return explicit IPA fixes this.
+IPA_MAP = {
+    # CCVC (2-onset, 1-coda)
+    'spef': 'spɛf', 'spek': 'spɛk', 'spet': 'spɛt', 'speb': 'spɛb',
+    'spev': 'spɛv', 'speg': 'spɛɡ', 'slep': 'slɛp', 'snep': 'snɛp',
+    'smep': 'smɛp', 'skef': 'skɛf', 'skev': 'skɛv', 'skem': 'skɛm',
+    'slek': 'slɛk', 'snek': 'snɛk', 'smet': 'smɛt', 'stek': 'stɛk',
+    'stef': 'stɛf', 'klet': 'klɛt', 'pret': 'pɹɛt', 'kres': 'kɹɛs',
+    # CVCC (1-onset, 2-obstruent-coda)
+    'fesp': 'fɛsp', 'kesp': 'kɛsp', 'tesp': 'tɛsp', 'besp': 'bɛsp',
+    'vesp': 'vɛsp', 'gesp': 'ɡɛsp', 'lesp': 'lɛsp', 'nesp': 'nɛsp',
+    'mesp': 'mɛsp', 'fesk': 'fɛsk', 'vesk': 'vɛsk', 'mesk': 'mɛsk',
+    'lesk': 'lɛsk', 'nesk': 'nɛsk', 'mest': 'mɛst', 'tesk': 'tɛsk',
+    'seft': 'sɛft', 'lekt': 'lɛkt', 'rept': 'ɹɛpt', 'reks': 'ɹɛks',
+    # CCCVC (3-onset, 1-coda)
+    'stref': 'stɹɛf', 'streg': 'stɹɛɡ',
+    'spref': 'spɹɛf', 'spreg': 'spɹɛɡ', 'sprek': 'spɹɛk',
+    'spreb': 'spɹɛb', 'spret': 'spɹɛt',
+    'skref': 'skɹɛf', 'skreg': 'skɹɛɡ', 'skrep': 'skɹɛp',
+    'skreb': 'skɹɛb', 'skret': 'skɹɛt',
+    'splef': 'splɛf', 'spleg': 'splɛɡ', 'splek': 'splɛk', 'splet': 'splɛt',
+    # CCVCC (2-onset, 2-obstruent-coda)
+    'frest': 'fɹɛst', 'grest': 'ɡɹɛst',
+    'fresp': 'fɹɛsp', 'gresp': 'ɡɹɛsp', 'kresp': 'kɹɛsp',
+    'bresp': 'bɹɛsp', 'tresp': 'tɹɛsp',
+    'fresk': 'fɹɛsk', 'gresk': 'ɡɹɛsk', 'presk': 'pɹɛsk',
+    'bresk': 'bɹɛsk', 'tresk': 'tɹɛsk',
+    'flesp': 'flɛsp', 'glesp': 'ɡlɛsp', 'klesp': 'klɛsp', 'plest': 'plɛst',
+    # VCCC (0-onset, 3-obstruent-coda)
+    'ekst': 'ɛkst', 'ekts': 'ɛkts', 'eskt': 'ɛskt',
+    'espt': 'ɛspt', 'epts': 'ɛpts', 'epst': 'ɛpst',
+    # Digit words — real words but patched for consistency
+    'one': 'wʌn', 'two': 'tuː', 'three': 'θɹiː', 'four': 'fɔɹ',
+    'five': 'faɪv', 'six': 'sɪks', 'seven': 'sɛvən', 'eight': 'eɪt',
+    'nine': 'naɪn',
+}
+
 # -- Stimulus lists ------------------------------------------------------------
 PAIRS = [
     ("spef", "fesp"), ("spek", "kesp"), ("spet", "tesp"), ("speb", "besp"),
