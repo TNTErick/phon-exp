@@ -1,64 +1,22 @@
 #!/usr/bin/env python3
 """
-Generate nonce word audio stimuli using Kokoro-82M TTS (local, no API key).
+Generate nonce word audio stimuli via edge-tts (Microsoft Azure Neural, free).
 
 Install:
-    uv pip install kokoro soundfile pydub
+    uv pip install edge-tts pydub
 
 Run:
     python generate_stimuli.py
 Output: public/stimuli/*.wav, all RMS-normalized to -20 dBFS.
 """
 
-import os, sys
-import numpy as np
-import soundfile as sf
+import asyncio, os, sys
 from pydub import AudioSegment
 
-VOICE       = "am_adam"   # American English male
-SPEED       = 0.85        # slightly slower for cluster clarity
+VOICE       = "en-US-RogerNeural"
+RATE        = "-10%"           # slightly slower for cluster clarity
 TARGET_DBFS = -20.0
-SAMPLE_RATE = 24000
 OUT_DIR     = "public/stimuli"
-
-# IPA pronunciations — all vowel /ɛ/ — used to bypass misaki G2P.
-# Misaki returns ❓ for most nonwords, causing Kokoro's fallback to insert a
-# spurious schwa. Patching g2p to return explicit IPA fixes this.
-IPA_MAP = {
-    # CCVC (2-onset, 1-coda)
-    'spef': 'spɛf', 'spek': 'spɛk', 'spet': 'spɛt', 'speb': 'spɛb',
-    'spev': 'spɛv', 'speg': 'spɛɡ', 'slep': 'slɛp', 'snep': 'snɛp',
-    'smep': 'smɛp', 'skef': 'skɛf', 'skev': 'skɛv', 'skem': 'skɛm',
-    'slek': 'slɛk', 'snek': 'snɛk', 'smet': 'smɛt', 'stek': 'stɛk',
-    'stef': 'stɛf', 'klet': 'klɛt', 'pret': 'pɹɛt', 'kres': 'kɹɛs',
-    # CVCC (1-onset, 2-obstruent-coda)
-    'fesp': 'fɛsp', 'kesp': 'kɛsp', 'tesp': 'tɛsp', 'besp': 'bɛsp',
-    'vesp': 'vɛsp', 'gesp': 'ɡɛsp', 'lesp': 'lɛsp', 'nesp': 'nɛsp',
-    'mesp': 'mɛsp', 'fesk': 'fɛsk', 'vesk': 'vɛsk', 'mesk': 'mɛsk',
-    'lesk': 'lɛsk', 'nesk': 'nɛsk', 'mest': 'mɛst', 'tesk': 'tɛsk',
-    'seft': 'sɛft', 'lekt': 'lɛkt', 'rept': 'ɹɛpt', 'reks': 'ɹɛks',
-    # CCCVC (3-onset, 1-coda)
-    'stref': 'stɹɛf', 'streg': 'stɹɛɡ',
-    'spref': 'spɹɛf', 'spreg': 'spɹɛɡ', 'sprek': 'spɹɛk',
-    'spreb': 'spɹɛb', 'spret': 'spɹɛt',
-    'skref': 'skɹɛf', 'skreg': 'skɹɛɡ', 'skrep': 'skɹɛp',
-    'skreb': 'skɹɛb', 'skret': 'skɹɛt',
-    'splef': 'splɛf', 'spleg': 'splɛɡ', 'splek': 'splɛk', 'splet': 'splɛt',
-    # CCVCC (2-onset, 2-obstruent-coda)
-    'frest': 'fɹɛst', 'grest': 'ɡɹɛst',
-    'fresp': 'fɹɛsp', 'gresp': 'ɡɹɛsp', 'kresp': 'kɹɛsp',
-    'bresp': 'bɹɛsp', 'tresp': 'tɹɛsp',
-    'fresk': 'fɹɛsk', 'gresk': 'ɡɹɛsk', 'presk': 'pɹɛsk',
-    'bresk': 'bɹɛsk', 'tresk': 'tɹɛsk',
-    'flesp': 'flɛsp', 'glesp': 'ɡlɛsp', 'klesp': 'klɛsp', 'plest': 'plɛst',
-    # VCCC (0-onset, 3-obstruent-coda)
-    'ekst': 'ɛkst', 'ekts': 'ɛkts', 'eskt': 'ɛskt',
-    'espt': 'ɛspt', 'epts': 'ɛpts', 'epst': 'ɛpst',
-    # Digit words — real words but patched for consistency
-    'one': 'wʌn', 'two': 'tuː', 'three': 'θɹiː', 'four': 'fɔɹ',
-    'five': 'faɪv', 'six': 'sɪks', 'seven': 'sɛvən', 'eight': 'eɪt',
-    'nine': 'naɪn',
-}
 
 # -- Stimulus lists ------------------------------------------------------------
 PAIRS = [
@@ -101,85 +59,73 @@ VOLUME_CHECK_TEXT = (
 )
 
 
-# -- Kokoro pipeline -----------------------------------------------------------
+# -- edge-tts helpers ----------------------------------------------------------
 
-_pipeline = None
-
-def get_pipeline():
-    global _pipeline
-    if _pipeline is None:
+async def _synth_mp3(text: str, out_mp3: str, retries: int = 3) -> None:
+    try:
+        import edge_tts
+    except ImportError:
+        sys.exit("edge-tts not found. Run: uv pip install edge-tts pydub")
+    for attempt in range(retries):
         try:
-            from kokoro import KPipeline
-            _pipeline = KPipeline(lang_code='a')   # 'a' = American English
-        except ImportError:
-            sys.exit("kokoro not found. Run: uv pip install kokoro soundfile pydub")
-    return _pipeline
+            comm = edge_tts.Communicate(text, VOICE, rate=RATE)
+            await comm.save(out_mp3)
+            return
+        except Exception as e:
+            if attempt < retries - 1:
+                await asyncio.sleep(1 + attempt)
+            else:
+                raise
 
 
-def synth(text: str) -> np.ndarray:
-    """Synthesize text to a numpy float32 array at SAMPLE_RATE Hz."""
-    pipe = get_pipeline()
-    chunks = []
-    for _, _, audio in pipe(text, voice=VOICE, speed=SPEED):
-        if audio is not None and len(audio) > 0:
-            chunks.append(audio)
-    if not chunks:
-        raise RuntimeError(f"No audio generated for: {text!r}")
-    return np.concatenate(chunks).astype(np.float32)
-
-
-def save_normalized(audio: np.ndarray, out_wav: str) -> float:
-    """Write WAV and normalize to TARGET_DBFS; return gain applied (dB)."""
-    sf.write(out_wav, audio, SAMPLE_RATE)
-    seg = AudioSegment.from_wav(out_wav)
-    delta = TARGET_DBFS - seg.dBFS
-    seg.apply_gain(delta).export(out_wav, format="wav")
-    return delta
+def _mp3_to_wav(mp3: str, wav: str) -> int:
+    seg = AudioSegment.from_mp3(mp3)
+    seg.apply_gain(TARGET_DBFS - seg.dBFS).export(wav, format="wav")
+    os.remove(mp3)
+    return len(seg)
 
 
 # -- Main synthesis functions --------------------------------------------------
 
-def synthesize_all() -> None:
+async def synthesize_all() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
-    print(f"Synthesizing {len(WORDS)} stimuli with Kokoro-82M ({VOICE}, speed={SPEED})...")
+    print(f"Synthesizing {len(WORDS)} stimuli with {VOICE} (rate={RATE})...")
     for word in WORDS:
-        out = os.path.join(OUT_DIR, f"{word}.wav")
-        print(f"  {word}", end="  ", flush=True)
-        try:
-            audio = synth(word)
-            delta = save_normalized(audio, out)
-            dur_ms = len(audio) / SAMPLE_RATE * 1000
-            print(f"{dur_ms:.0f}ms  {delta:+.1f}dB")
-        except Exception as e:
-            print(f"ERROR: {e}")
+        mp3 = os.path.join(OUT_DIR, f"{word}.mp3")
+        wav = os.path.join(OUT_DIR, f"{word}.wav")
+        await _synth_mp3(word, mp3)
+        dur = _mp3_to_wav(mp3, wav)
+        print(f"  {word}  {dur}ms")
+        await asyncio.sleep(0.4)   # avoid Microsoft rate-limit
     print("Done.")
 
 
-def synthesize_digits() -> None:
+async def synthesize_digits() -> None:
     print("Synthesizing digits 1-9...")
     for n, word in DIGIT_WORDS.items():
-        out = os.path.join(OUT_DIR, f"digit_{n}.wav")
-        audio = synth(word)
-        save_normalized(audio, out)
+        mp3 = os.path.join(OUT_DIR, f"digit_{n}.mp3")
+        wav = os.path.join(OUT_DIR, f"digit_{n}.wav")
+        await _synth_mp3(word, mp3)
+        _mp3_to_wav(mp3, wav)
         print(f"  digit_{n}.wav  ({word})")
+        await asyncio.sleep(0.4)
     print("Done.")
 
 
-def build_volume_check() -> None:
-    out = os.path.join(OUT_DIR, "volume_check.wav")
-    audio = synth(VOLUME_CHECK_TEXT)
-    delta = save_normalized(audio, out)
-    dur_s = len(audio) / SAMPLE_RATE
-    print(f"  volume_check.wav  ({dur_s:.1f}s  {delta:+.1f}dB)")
+async def build_volume_check() -> None:
+    mp3 = os.path.join(OUT_DIR, "volume_check.mp3")
+    wav = os.path.join(OUT_DIR, "volume_check.wav")
+    await _synth_mp3(VOLUME_CHECK_TEXT, mp3)
+    dur = _mp3_to_wav(mp3, wav)
+    print(f"  volume_check.wav  ({dur/1000:.1f}s)")
 
 
-def main() -> None:
-    synthesize_all()
-    synthesize_digits()
-    build_volume_check()
+async def main() -> None:
+    await synthesize_all()
+    await synthesize_digits()
+    await build_volume_check()
     print(f"\n=== Done === Files saved to: {OUT_DIR}/")
-    print("Next: run analyze_stimuli.py to verify durations and RMS.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
