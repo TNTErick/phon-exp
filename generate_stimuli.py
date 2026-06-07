@@ -13,7 +13,7 @@ Output: public/stimuli/*.wav, all RMS-normalized to -20 dBFS.
 import asyncio, os, sys
 from pydub import AudioSegment
 
-VOICE       = "en-US-RogerNeural"
+VOICE       = "en-US-EricNeural"
 RATE        = "-10%"           # slightly slower for cluster clarity
 TARGET_DBFS = -20.0
 OUT_DIR     = "public/stimuli"
