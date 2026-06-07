@@ -34,18 +34,29 @@ PAIRS = [
     ("stef", "seft"), ("klet", "lekt"), ("pret", "rept"), ("kres", "reks"),
 ]
 
-CCCV_WORDS = {"stre", "spre", "skre", "sple"}
-VCCC_WORDS = {"ekst", "ekts", "eskt", "espt", "epts", "epst"}
+CCCVC_PAIRS = [
+    ("stref", "frest"), ("streg", "grest"),
+    ("spref", "fresp"), ("spreg", "gresp"), ("sprek", "kresp"),
+    ("spreb", "bresp"), ("spret", "tresp"),
+    ("skref", "fresk"), ("skreg", "gresk"), ("skrep", "presk"),
+    ("skreb", "bresk"), ("skret", "tresk"),
+    ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"), ("splet", "plest"),
+]
+
+CCCVC_WORDS = {p[0] for p in CCCVC_PAIRS}
+CCVCC_WORDS = {p[1] for p in CCCVC_PAIRS}
+VCCC_WORDS   = {"ekst", "ekts", "eskt", "espt", "epts", "epst"}
 
 CCVC_WORDS = {p[0] for p in PAIRS}
 CVCC_WORDS = {p[1] for p in PAIRS}
 
 
 def condition(word):
-    if word in CCVC_WORDS: return "CCVC"
-    if word in CVCC_WORDS: return "CVCC"
-    if word in CCCV_WORDS: return "CCCV"
-    if word in VCCC_WORDS: return "VCCC"
+    if word in CCVC_WORDS:  return "CCVC"
+    if word in CVCC_WORDS:  return "CVCC"
+    if word in CCCVC_WORDS: return "CCCVC"
+    if word in CCVCC_WORDS: return "CCVCC"
+    if word in VCCC_WORDS:  return "VCCC"
     return "other"
 
 
@@ -190,7 +201,7 @@ def main():
             print(f"{m['duration_ms']:.0f}ms  {m['rms_dbfs']:.1f}dBFS  "
                   f"prevowel={vstr}  onset_rms={m['onset_rms_dbfs']:.1f}dBFS")
             # Spectrogram for bl-/sl- items and their CVCC partners
-            if condition(word) in ("CCCV", "VCCC") or word in ("stef","seft","klet","lekt"):
+            if condition(word) in ("CCCVC", "CCVCC", "VCCC") or word in ("stef","seft","klet","lekt"):
                 save_spectrogram(word, snd)
         except Exception as e:
             print(f"ERROR: {e}")
@@ -206,7 +217,7 @@ def main():
 
     # Summary by condition
     print("\n── Condition summary ──────────────────────────────────────────")
-    for cond in ("CCVC", "CVCC", "CCCV", "VCCC"):
+    for cond in ("CCVC", "CVCC", "CCCVC", "CCVCC", "VCCC"):
         subset = [r for r in rows if r["condition"] == cond]
         def stat(key):
             vals = [r[key] for r in subset

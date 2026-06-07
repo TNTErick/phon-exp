@@ -40,13 +40,25 @@ PAIRS = [
     ("stef", "seft"), ("klet", "lekt"), ("pret", "rept"), ("kres", "reks"),
 ]
 
-CCCV_WORDS = ["stre", "spre", "skre", "sple"]                          # 3-onset, 0-coda
+# CCCVC/CCVCC: 4-consonant minimal pairs — 3-onset+1-coda vs 2-onset+2-coda.
+# CCCVC uses English 3-C onsets (str/spr/skr/spl); CCVCC has liquid in onset, obstruent coda.
+CCCVC_PAIRS = [
+    ("stref", "frest"), ("streg", "grest"),                              # str-based
+    ("spref", "fresp"), ("spreg", "gresp"), ("sprek", "kresp"),          # spr-based
+    ("spreb", "bresp"), ("spret", "tresp"),
+    ("skref", "fresk"), ("skreg", "gresk"), ("skrep", "presk"),          # skr-based
+    ("skreb", "bresk"), ("skret", "tresk"),
+    ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"),          # spl-based
+    ("splet", "plest"),
+]
+
 VCCC_WORDS = ["ekst", "ekts", "eskt", "espt", "epts", "epst"]          # 0-onset, 3-coda
 
 WORDS = (
-    [p[0] for p in PAIRS] +   # 20 CCVC
-    [p[1] for p in PAIRS] +   # 20 CVCC
-    CCCV_WORDS +
+    [p[0] for p in PAIRS] +        # 20 CCVC
+    [p[1] for p in PAIRS] +        # 20 CVCC
+    [p[0] for p in CCCVC_PAIRS] +  # 16 CCCVC
+    [p[1] for p in CCCVC_PAIRS] +  # 16 CCVCC
     VCCC_WORDS
 )
 
@@ -65,8 +77,20 @@ IPA_MAP = {
     'mesp': 'mɛsp', 'fesk': 'fɛsk', 'vesk': 'vɛsk', 'mesk': 'mɛsk',
     'lesk': 'lɛsk', 'nesk': 'nɛsk', 'mest': 'mɛst', 'tesk': 'tɛsk',
     'seft': 'sɛft', 'lekt': 'lɛkt', 'rept': 'ɹɛpt', 'reks': 'ɹɛks',
-    # CCCV (3-onset, 0-coda — open syllable)
-    'stre': 'stɹɛ', 'spre': 'spɹɛ', 'skre': 'skɹɛ', 'sple': 'splɛ',
+    # CCCVC (3-onset, 1-coda)
+    'stref': 'stɹɛf', 'streg': 'stɹɛɡ',
+    'spref': 'spɹɛf', 'spreg': 'spɹɛɡ', 'sprek': 'spɹɛk',
+    'spreb': 'spɹɛb', 'spret': 'spɹɛt',
+    'skref': 'skɹɛf', 'skreg': 'skɹɛɡ', 'skrep': 'skɹɛp',
+    'skreb': 'skɹɛb', 'skret': 'skɹɛt',
+    'splef': 'splɛf', 'spleg': 'splɛɡ', 'splek': 'splɛk', 'splet': 'splɛt',
+    # CCVCC (2-onset, 2-obstruent-coda)
+    'frest': 'fɹɛst', 'grest': 'ɡɹɛst',
+    'fresp': 'fɹɛsp', 'gresp': 'ɡɹɛsp', 'kresp': 'kɹɛsp',
+    'bresp': 'bɹɛsp', 'tresp': 'tɹɛsp',
+    'fresk': 'fɹɛsk', 'gresk': 'ɡɹɛsk', 'presk': 'pɹɛsk',
+    'bresk': 'bɹɛsk', 'tresk': 'tɹɛsk',
+    'flesp': 'flɛsp', 'glesp': 'ɡlɛsp', 'klesp': 'klɛsp', 'plest': 'plɛst',
     # VCCC (0-onset, 3-obstruent-coda)
     'ekst': 'ɛkst', 'ekts': 'ɛkts', 'eskt': 'ɛskt',
     'espt': 'ɛspt', 'epts': 'ɛpts', 'epst': 'ɛpst',

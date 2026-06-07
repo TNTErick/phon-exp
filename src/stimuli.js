@@ -42,12 +42,30 @@ export const ITEMS = PAIRS.flatMap(p => [
 export const CCVC_ITEMS = ITEMS.filter(x => x.condition === 'CCVC');
 export const CVCC_ITEMS = ITEMS.filter(x => x.condition === 'CVCC');
 
-// ── Phase 2 gradient anchors ────────────────────────────────────────────────
-export const CCCV_ITEMS = ['stre', 'spre', 'skre', 'sple'].map(id => ({
-  id, foil: null, condition: 'CCCV', onset_n: 3, coda_n: 0,
-  audio: `${BASE}stimuli/${id}.wav`,
-}));
+// ── Phase 2: 4-consonant gradient (CCCVC vs CCVCC) ─────────────────────────
+// CCCVC: 3-onset + vowel + 1-coda (English 3-C onsets: str/spr/skr/spl)
+// CCVCC: 2-onset + vowel + 2-obstruent-coda (liquid in onset, obstruent coda)
+// Same 4-consonant set across each pair — parallel to CCVC/CVCC structure.
+export const CCCVC_PAIRS = [
+  { cccvc: 'stref', ccvcc: 'frest' }, { cccvc: 'streg', ccvcc: 'grest' },
+  { cccvc: 'spref', ccvcc: 'fresp' }, { cccvc: 'spreg', ccvcc: 'gresp' },
+  { cccvc: 'sprek', ccvcc: 'kresp' }, { cccvc: 'spreb', ccvcc: 'bresp' },
+  { cccvc: 'spret', ccvcc: 'tresp' },
+  { cccvc: 'skref', ccvcc: 'fresk' }, { cccvc: 'skreg', ccvcc: 'gresk' },
+  { cccvc: 'skrep', ccvcc: 'presk' }, { cccvc: 'skreb', ccvcc: 'bresk' },
+  { cccvc: 'skret', ccvcc: 'tresk' },
+  { cccvc: 'splef', ccvcc: 'flesp' }, { cccvc: 'spleg', ccvcc: 'glesp' },
+  { cccvc: 'splek', ccvcc: 'klesp' }, { cccvc: 'splet', ccvcc: 'plest' },
+];
 
+export const CCCVC_ITEMS = CCCVC_PAIRS.flatMap(p => [
+  { id: p.cccvc, foil: p.ccvcc, condition: 'CCCVC', onset_n: 3, coda_n: 1,
+    audio: `${BASE}stimuli/${p.cccvc}.wav` },
+  { id: p.ccvcc, foil: p.cccvc, condition: 'CCVCC', onset_n: 2, coda_n: 2,
+    audio: `${BASE}stimuli/${p.ccvcc}.wav` },
+]);
+
+// ── VCCC gradient anchor ────────────────────────────────────────────────────
 // All-obstruent 3-C codas: {k,s,t} → ekst/ekts/eskt; {s,p,t} → espt/epts/epst
 export const VCCC_ITEMS = ['ekst', 'ekts', 'eskt', 'espt', 'epts', 'epst'].map(id => ({
   id, foil: null, condition: 'VCCC', onset_n: 0, coda_n: 3,
