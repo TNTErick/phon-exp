@@ -36,7 +36,12 @@ CCCVC_PAIRS = [
     ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"), ("splet", "plest"),
 ]
 
-VCCC_WORDS = ["ekst", "espt", "epts", "epst"]
+VCCC_WORDS = [
+    # all-obstruent
+    "ekst", "espt", "epts", "epst",
+    # nasal + 2 obstruents
+    "empt", "emps", "enks", "ents", "enst", "enkt",
+]
 
 WORDS = (
     [p[0] for p in PAIRS] +

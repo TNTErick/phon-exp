@@ -45,7 +45,7 @@ CCCVC_PAIRS = [
 
 CCCVC_WORDS = {p[0] for p in CCCVC_PAIRS}
 CCVCC_WORDS = {p[1] for p in CCCVC_PAIRS}
-VCCC_WORDS   = {"ekst", "espt", "epts", "epst"}
+VCCC_WORDS   = {"ekst", "espt", "epts", "epst", "empt", "emps", "enks", "ents", "enst", "enkt"}
 
 CCVC_WORDS = {p[0] for p in PAIRS}
 CVCC_WORDS = {p[1] for p in PAIRS}
