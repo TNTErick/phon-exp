@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate nonce word audio stimuli via Google Cloud TTS (Neural2 + SSML IPA).
+Generate nonce word audio stimuli using Kokoro-82M TTS (local, no API key).
 
-SSML <phoneme alphabet="ipa"> bypasses the TTS grapheme-to-phoneme system,
-guaranteeing exact pronunciation of nonwords regardless of spelling.
-
-Requires:
-    uv pip install google-cloud-texttospeech pydub
-
-Authentication (one-time):
-    gcloud auth application-default login
-    # OR: set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service_account.json
-
-Billing: Neural2 voices — 1 M chars/month free tier. This script uses ~300 chars.
+Install:
+    uv pip install kokoro soundfile pydub
 
 Run:
     python generate_stimuli.py
@@ -20,18 +11,17 @@ Output: public/stimuli/*.wav, all RMS-normalized to -20 dBFS.
 """
 
 import os, sys
+import numpy as np
+import soundfile as sf
 from pydub import AudioSegment
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
-VOICE_NAME    = "en-US-Neural2-D"   # clear male Neural2 voice; IPA phoneme tags supported
-LANGUAGE      = "en-US"
-SPEAKING_RATE = 0.85                # slightly slower for consonant cluster clarity
-TARGET_DBFS   = -20.0
-OUT_DIR       = "public/stimuli"
+VOICE       = "am_adam"   # American English male
+SPEED       = 0.85        # slightly slower for cluster clarity
+TARGET_DBFS = -20.0
+SAMPLE_RATE = 24000
+OUT_DIR     = "public/stimuli"
 
 # -- Stimulus lists ------------------------------------------------------------
-# CCVC/CVCC minimal pairs: same consonant set, CVCC coda always two obstruents.
-# All-obstruent codas eliminate rhoticity ambiguity (CVrC ~ CVC perceptually).
 PAIRS = [
     ("spef", "fesp"), ("spek", "kesp"), ("spet", "tesp"), ("speb", "besp"),
     ("spev", "vesp"), ("speg", "gesp"), ("slep", "lesp"), ("snep", "nesp"),
@@ -40,61 +30,24 @@ PAIRS = [
     ("stef", "seft"), ("klet", "lekt"), ("pret", "rept"), ("kres", "reks"),
 ]
 
-# CCCVC/CCVCC: 4-consonant minimal pairs — 3-onset+1-coda vs 2-onset+2-coda.
-# CCCVC uses English 3-C onsets (str/spr/skr/spl); CCVCC has liquid in onset, obstruent coda.
 CCCVC_PAIRS = [
-    ("stref", "frest"), ("streg", "grest"),                              # str-based
-    ("spref", "fresp"), ("spreg", "gresp"), ("sprek", "kresp"),          # spr-based
+    ("stref", "frest"), ("streg", "grest"),
+    ("spref", "fresp"), ("spreg", "gresp"), ("sprek", "kresp"),
     ("spreb", "bresp"), ("spret", "tresp"),
-    ("skref", "fresk"), ("skreg", "gresk"), ("skrep", "presk"),          # skr-based
+    ("skref", "fresk"), ("skreg", "gresk"), ("skrep", "presk"),
     ("skreb", "bresk"), ("skret", "tresk"),
-    ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"),          # spl-based
-    ("splet", "plest"),
+    ("splef", "flesp"), ("spleg", "glesp"), ("splek", "klesp"), ("splet", "plest"),
 ]
 
-VCCC_WORDS = ["ekst", "ekts", "eskt", "espt", "epts", "epst"]          # 0-onset, 3-coda
+VCCC_WORDS = ["ekst", "ekts", "eskt", "espt", "epts", "epst"]
 
 WORDS = (
-    [p[0] for p in PAIRS] +        # 20 CCVC
-    [p[1] for p in PAIRS] +        # 20 CVCC
-    [p[0] for p in CCCVC_PAIRS] +  # 16 CCCVC
-    [p[1] for p in CCCVC_PAIRS] +  # 16 CCVCC
+    [p[0] for p in PAIRS] +
+    [p[1] for p in PAIRS] +
+    [p[0] for p in CCCVC_PAIRS] +
+    [p[1] for p in CCCVC_PAIRS] +
     VCCC_WORDS
 )
-
-# -- IPA pronunciations — vowel /e/ throughout --------------------------------
-# Passed to <phoneme alphabet="ipa" ph="..."> so TTS produces the exact sequence.
-IPA_MAP = {
-    # CCVC (2-onset, 1-coda)
-    'spef': 'spɛf', 'spek': 'spɛk', 'spet': 'spɛt', 'speb': 'spɛb',
-    'spev': 'spɛv', 'speg': 'spɛɡ', 'slep': 'slɛp', 'snep': 'snɛp',
-    'smep': 'smɛp', 'skef': 'skɛf', 'skev': 'skɛv', 'skem': 'skɛm',
-    'slek': 'slɛk', 'snek': 'snɛk', 'smet': 'smɛt', 'stek': 'stɛk',
-    'stef': 'stɛf', 'klet': 'klɛt', 'pret': 'pɹɛt', 'kres': 'kɹɛs',
-    # CVCC (1-onset, 2-obstruent-coda)
-    'fesp': 'fɛsp', 'kesp': 'kɛsp', 'tesp': 'tɛsp', 'besp': 'bɛsp',
-    'vesp': 'vɛsp', 'gesp': 'ɡɛsp', 'lesp': 'lɛsp', 'nesp': 'nɛsp',
-    'mesp': 'mɛsp', 'fesk': 'fɛsk', 'vesk': 'vɛsk', 'mesk': 'mɛsk',
-    'lesk': 'lɛsk', 'nesk': 'nɛsk', 'mest': 'mɛst', 'tesk': 'tɛsk',
-    'seft': 'sɛft', 'lekt': 'lɛkt', 'rept': 'ɹɛpt', 'reks': 'ɹɛks',
-    # CCCVC (3-onset, 1-coda)
-    'stref': 'stɹɛf', 'streg': 'stɹɛɡ',
-    'spref': 'spɹɛf', 'spreg': 'spɹɛɡ', 'sprek': 'spɹɛk',
-    'spreb': 'spɹɛb', 'spret': 'spɹɛt',
-    'skref': 'skɹɛf', 'skreg': 'skɹɛɡ', 'skrep': 'skɹɛp',
-    'skreb': 'skɹɛb', 'skret': 'skɹɛt',
-    'splef': 'splɛf', 'spleg': 'splɛɡ', 'splek': 'splɛk', 'splet': 'splɛt',
-    # CCVCC (2-onset, 2-obstruent-coda)
-    'frest': 'fɹɛst', 'grest': 'ɡɹɛst',
-    'fresp': 'fɹɛsp', 'gresp': 'ɡɹɛsp', 'kresp': 'kɹɛsp',
-    'bresp': 'bɹɛsp', 'tresp': 'tɹɛsp',
-    'fresk': 'fɹɛsk', 'gresk': 'ɡɹɛsk', 'presk': 'pɹɛsk',
-    'bresk': 'bɹɛsk', 'tresk': 'tɹɛsk',
-    'flesp': 'flɛsp', 'glesp': 'ɡlɛsp', 'klesp': 'klɛsp', 'plest': 'plɛst',
-    # VCCC (0-onset, 3-obstruent-coda)
-    'ekst': 'ɛkst', 'ekts': 'ɛkts', 'eskt': 'ɛskt',
-    'espt': 'ɛspt', 'epts': 'ɛpts', 'epst': 'ɛpst',
-}
 
 DIGIT_WORDS = {
     '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
@@ -104,126 +57,89 @@ DIGIT_WORDS = {
 VOLUME_CHECK_TEXT = (
     "This is a sound check for the speech memory study. "
     "You will hear short nonsense words like spef, fesk, and ekst. "
-    "Please adjust your volume until this voice sounds clear and comfortable — "
-    "not too quiet, not too loud. "
+    "Please adjust your volume until this voice sounds clear and comfortable. "
     "When you are ready, press continue."
 )
 
 
-# -- Google Cloud TTS helpers --------------------------------------------------
+# -- Kokoro pipeline -----------------------------------------------------------
 
-def _client():
-    try:
-        from google.cloud import texttospeech
-        return texttospeech.TextToSpeechClient()
-    except ImportError:
-        sys.exit("Missing dependency. Run: uv pip install google-cloud-texttospeech pydub")
+_pipeline = None
 
-
-def _voice():
-    from google.cloud import texttospeech
-    return texttospeech.VoiceSelectionParams(language_code=LANGUAGE, name=VOICE_NAME)
-
-
-def _audio_cfg():
-    from google.cloud import texttospeech
-    return texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.MP3,
-        speaking_rate=SPEAKING_RATE,
-    )
+def get_pipeline():
+    global _pipeline
+    if _pipeline is None:
+        try:
+            from kokoro import KPipeline
+            _pipeline = KPipeline(lang_code='a')   # 'a' = American English
+        except ImportError:
+            sys.exit("kokoro not found. Run: uv pip install kokoro soundfile pydub")
+    return _pipeline
 
 
-def _call(client, inp, out_mp3: str) -> None:
-    r = client.synthesize_speech(input=inp, voice=_voice(), audio_config=_audio_cfg())
-    with open(out_mp3, "wb") as f:
-        f.write(r.audio_content)
+def synth(text: str) -> np.ndarray:
+    """Synthesize text to a numpy float32 array at SAMPLE_RATE Hz."""
+    pipe = get_pipeline()
+    chunks = []
+    for _, _, audio in pipe(text, voice=VOICE, speed=SPEED):
+        if audio is not None and len(audio) > 0:
+            chunks.append(audio)
+    if not chunks:
+        raise RuntimeError(f"No audio generated for: {text!r}")
+    return np.concatenate(chunks).astype(np.float32)
 
 
-def _mp3_to_wav(mp3: str, wav: str) -> None:
-    seg = AudioSegment.from_mp3(mp3)
-    seg.apply_gain(TARGET_DBFS - seg.dBFS).export(wav, format="wav")
-    os.remove(mp3)
+def save_normalized(audio: np.ndarray, out_wav: str) -> float:
+    """Write WAV and normalize to TARGET_DBFS; return gain applied (dB)."""
+    sf.write(out_wav, audio, SAMPLE_RATE)
+    seg = AudioSegment.from_wav(out_wav)
+    delta = TARGET_DBFS - seg.dBFS
+    seg.apply_gain(delta).export(out_wav, format="wav")
+    return delta
 
 
 # -- Main synthesis functions --------------------------------------------------
 
 def synthesize_all() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
-    c = _client()
-    print(f"Synthesizing {len(WORDS)} words via {VOICE_NAME} with IPA phoneme tags...")
-
-    def do_one(word):
-        from google.cloud import texttospeech
-        ipa  = IPA_MAP[word]
-        ssml = f'<speak><phoneme alphabet="ipa" ph="{ipa}">{word}</phoneme></speak>'
-        _call(c, texttospeech.SynthesisInput(ssml=ssml),
-              os.path.join(OUT_DIR, f"{word}.mp3"))
-        return word
-
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = {ex.submit(do_one, w): w for w in WORDS if w in IPA_MAP}
-        for fut in as_completed(futs):
-            w = futs[fut]
-            try:
-                fut.result()
-                print(f"  {w}.mp3")
-            except Exception as e:
-                print(f"  ERROR {w}: {e}")
-    print("  Done.")
+    print(f"Synthesizing {len(WORDS)} stimuli with Kokoro-82M ({VOICE}, speed={SPEED})...")
+    for word in WORDS:
+        out = os.path.join(OUT_DIR, f"{word}.wav")
+        print(f"  {word}", end="  ", flush=True)
+        try:
+            audio = synth(word)
+            delta = save_normalized(audio, out)
+            dur_ms = len(audio) / SAMPLE_RATE * 1000
+            print(f"{dur_ms:.0f}ms  {delta:+.1f}dB")
+        except Exception as e:
+            print(f"ERROR: {e}")
+    print("Done.")
 
 
 def synthesize_digits() -> None:
-    from google.cloud import texttospeech
-    c = _client()
     print("Synthesizing digits 1-9...")
     for n, word in DIGIT_WORDS.items():
-        mp3 = os.path.join(OUT_DIR, f"digit_{n}.mp3")
-        _call(c, texttospeech.SynthesisInput(text=word), mp3)
-        _mp3_to_wav(mp3, os.path.join(OUT_DIR, f"digit_{n}.wav"))
+        out = os.path.join(OUT_DIR, f"digit_{n}.wav")
+        audio = synth(word)
+        save_normalized(audio, out)
         print(f"  digit_{n}.wav  ({word})")
-    print("  Done.")
+    print("Done.")
 
 
 def build_volume_check() -> None:
-    from google.cloud import texttospeech
-    c   = _client()
-    mp3 = os.path.join(OUT_DIR, "volume_check.mp3")
-    _call(c, texttospeech.SynthesisInput(text=VOLUME_CHECK_TEXT), mp3)
-    seg = AudioSegment.from_mp3(mp3)
-    seg.apply_gain(TARGET_DBFS - seg.dBFS).export(
-        os.path.join(OUT_DIR, "volume_check.wav"), format="wav"
-    )
-    os.remove(mp3)
-    print(f"  volume_check.wav  ({seg.duration_seconds:.1f}s)")
-
-
-def normalize_all() -> None:
-    """Convert any remaining MP3s to normalized WAV (fallback for partial runs)."""
-    print("Normalizing audio levels...")
-    count = 0
-    for w in WORDS:
-        mp3 = os.path.join(OUT_DIR, f"{w}.mp3")
-        if not os.path.exists(mp3):
-            continue
-        _mp3_to_wav(mp3, os.path.join(OUT_DIR, f"{w}.wav"))
-        print(f"  {w}.wav")
-        count += 1
-    if count:
-        print(f"  {count} files normalized.")
+    out = os.path.join(OUT_DIR, "volume_check.wav")
+    audio = synth(VOLUME_CHECK_TEXT)
+    delta = save_normalized(audio, out)
+    dur_s = len(audio) / SAMPLE_RATE
+    print(f"  volume_check.wav  ({dur_s:.1f}s  {delta:+.1f}dB)")
 
 
 def main() -> None:
     synthesize_all()
     synthesize_digits()
     build_volume_check()
-    normalize_all()
-
-    print("\n=== Done ===")
-    print(f"Files saved to: {OUT_DIR}/")
-    print()
-    print("Next steps:")
-    print("  1. Open stimuli in Praat -- verify cluster durations per condition")
-    print("  2. Phonotactic probability: http://www.people.ku.edu/~mvitevit/PhProb.html")
+    print(f"\n=== Done === Files saved to: {OUT_DIR}/")
+    print("Next: run analyze_stimuli.py to verify durations and RMS.")
 
 
 if __name__ == "__main__":
