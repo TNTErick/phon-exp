@@ -4,7 +4,7 @@ import audioKeyboardResponse from '@jspsych/plugin-audio-keyboard-response';
 import surveyHtmlForm from '@jspsych/plugin-survey-html-form';
 import preload from '@jspsych/plugin-preload';
 
-import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE } from './stimuli.js';
+import { ITEMS, CCVC_ITEMS, CVCC_ITEMS, LEXTALE, LEXTALE_PRACTICE } from './stimuli.js';
 import { shuffle, generateDigits, buildInterleavedTrials } from './trials.js';
 import { measureAmbientNoise } from './noise.js';
 
@@ -232,10 +232,42 @@ export function buildTimeline(jsPsych) {
       <h3>Word Recognition</h3>
       <p>A string of letters will appear. Decide: <strong>is it a real English word?</strong></p>
       <p>Press <strong>YES</strong> or <strong>NO</strong> as quickly as you can. Go with your first instinct.</p>
-      <p style="color:#7A6E5C;font-size:.9em">Some items are rare or technical — that is normal. &nbsp;≈ 3 minutes.</p>
+      <p>If you are sure a word exists even if you don't know its exact meaning, press YES.<br>
+         This test uses <strong>British spelling</strong> (e.g. <em>savoury</em>, not <em>savory</em>).</p>
+      <p style="color:#7A6E5C;font-size:.9em">Three practice items with feedback first. &nbsp;≈ 3 minutes total.</p>
     `,
     choices: ['Start'],
     data: { task: 'lextale_instructions' },
+  });
+
+  // Practice items with feedback (not scored)
+  for (const item of LEXTALE_PRACTICE) {
+    tl.push({
+      type: htmlButtonResponse,
+      stimulus: `<div class="lextale-word">${item.w}</div>`,
+      choices: ['YES — real word', 'NO — not a word'],
+      data: { task: 'lextale_practice', word: item.w, is_word: item.real },
+      on_finish(data) { data.correct = (data.response === 0) === item.real; },
+    });
+    const correctLabel = item.real ? 'YES — real word' : 'NO — not a word';
+    tl.push({
+      type: htmlKeyboardResponse,
+      stimulus() {
+        const last = jsPsych.data.get().last(1).values()[0];
+        return last.correct
+          ? `<p style="font-size:1.4em;color:#5BA97A;font-family:'EB Garamond',serif">✓ Correct!</p>`
+          : `<p style="font-size:1.4em;color:#C05858;font-family:'EB Garamond',serif">✗ The answer was <strong>${correctLabel}</strong></p>`;
+      },
+      choices: 'NO_KEYS',
+      trial_duration: 1400,
+    });
+  }
+
+  tl.push({
+    type: htmlButtonResponse,
+    stimulus: `<p style="font-size:1.1em">Practice done. <strong>No more feedback</strong> in the real test.</p>`,
+    choices: ['Start test'],
+    data: { task: 'lextale_practice_end' },
   });
 
   for (const item of shuffle(LEXTALE)) {
