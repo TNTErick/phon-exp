@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Voice Comparison</title>
+<style>
+  body { font-family: monospace; background: #111; color: #ccc; padding: 32px; }
+  h2 { color: #c9a84c; margin-bottom: 4px; }
+  .section { margin-top: 28px; }
+  h3 { color: #888; font-size: .85em; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 8px; }
+  table { border-collapse: collapse; }
+  th { color: #c9a84c; padding: 6px 16px; text-align: center; font-size: .8em; }
+  td { padding: 5px 16px; text-align: center; border-top: 1px solid #1e1e1e; }
+  td:first-child { text-align: left; color: #888; width: 60px; }
+  audio { height: 26px; width: 160px; }
+</style>
+</head>
+<body>
+<h2>Voice comparison — 5 words × all voices</h2>
+<p style="color:#666;font-size:.85em">Words: spef (CCVC) · fesp (CVCC) · stref (CCCVC) · six (digit) · ekst (VCCC)</p>
+
+<div class="section">
+  <h3>Kokoro-82M (local)</h3>
+  <table id="kokoro"></table>
+</div>
+
+<div class="section">
+  <h3>edge-tts — Microsoft Azure Neural (free, online)</h3>
+  <table id="edge"></table>
+</div>
+
+<div class="section">
+  <h3>Parler-TTS mini (local, prompted)</h3>
+  <table id="parler"></table>
+</div>
+
+<script>
+const words = ['spef','fesp','stref','six','ekst'];
+
+function buildTable(id, voices) {
+  const t = document.getElementById(id);
+  const hr = document.createElement('tr');
+  hr.innerHTML = '<th>word</th>' + voices.map(([k,l]) => `<th>${l}</th>`).join('');
+  t.appendChild(hr);
+  words.forEach(w => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${w}</td>` + voices.map(([k]) => {
+      const f = `${k}_${w}.wav`;
+      return `<td><audio controls src="${f}"></audio></td>`;
+    }).join('');
+    t.appendChild(tr);
+  });
+}
+
+buildTable('kokoro', [
+  ['am_adam','adam'],['am_echo','echo'],['am_fenrir','fenrir'],['am_onyx','onyx']
+]);
+
+buildTable('edge', [
+  ['edge_guy','Guy'],['edge_eric','Eric'],['edge_andrew','Andrew'],
+  ['edge_brian','Brian'],['edge_christopher','Christopher'],['edge_roger','Roger']
+]);
+
+buildTable('parler', [
+  ['parler_clear','clear'],['parler_deep','deep']
+]);
+</script>
+</body>
+</html>

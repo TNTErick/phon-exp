@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>All Stimuli</title>
+<style>
+  body { font-family: monospace; background: #111; color: #ccc; padding: 24px; }
+  h1  { color: #c9a84c; font-size: 1.1em; margin-bottom: 4px; }
+  p   { color: #555; font-size: .8em; margin: 0 0 20px; }
+  h2  { color: #888; font-size: .75em; letter-spacing: .12em; text-transform: uppercase;
+        margin: 24px 0 8px; border-top: 1px solid #222; padding-top: 12px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .item { display: flex; align-items: center; gap: 6px; background: #1a1a1a;
+          border-radius: 6px; padding: 4px 10px; }
+  .word { color: #c9a84c; width: 64px; font-size: .9em; }
+  audio { height: 24px; width: 140px; }
+  .pair { display: flex; gap: 4px; align-items: center; background: #1a1a1a;
+          border-radius: 6px; padding: 4px 10px; }
+  .pair .word { width: 52px; }
+  .sep  { color: #444; }
+</style>
+</head>
+<body>
+<h1>Stimulus audio — en-US-RogerNeural</h1>
+<p>Click ▶ to play. Pairs shown side-by-side.</p>
+
+<h2>CCVC / CVCC — 20 pairs (3 consonants, 2-onset / 1-onset)</h2>
+<div class="grid" id="pairs"></div>
+
+<h2>CCCVC / CCVCC — 16 pairs (4 consonants, 3-onset / 2-onset)</h2>
+<div class="grid" id="cccvc_pairs"></div>
+
+<h2>VCCC — 6 items (3 consonants, 0-onset)</h2>
+<div class="grid" id="vccc"></div>
+
+<h2>Digits</h2>
+<div class="grid" id="digits"></div>
+
+<script>
+const BASE = '/';
+
+const PAIRS = [
+  ['spef','fesp'],['spek','kesp'],['spet','tesp'],['speb','besp'],
+  ['spev','vesp'],['speg','gesp'],['slep','lesp'],['snep','nesp'],
+  ['smep','mesp'],['skef','fesk'],['skev','vesk'],['skem','mesk'],
+  ['slek','lesk'],['snek','nesk'],['smet','mest'],['stek','tesk'],
+  ['stef','seft'],['klet','lekt'],['pret','rept'],['kres','reks'],
+];
+
+const CCCVC_PAIRS = [
+  ['stref','frest'],['streg','grest'],
+  ['spref','fresp'],['spreg','gresp'],['sprek','kresp'],
+  ['spreb','bresp'],['spret','tresp'],
+  ['skref','fresk'],['skreg','gresk'],['skrep','presk'],
+  ['skreb','bresk'],['skret','tresk'],
+  ['splef','flesp'],['spleg','glesp'],['splek','klesp'],['splet','plest'],
+];
+
+const VCCC = ['ekst','ekts','eskt','espt','epts','epst'];
+const DIGITS = ['1','2','3','4','5','6','7','8','9'];
+
+function audio(src) {
+  return `<audio controls src="${src}"></audio>`;
+}
+
+function pair(a, b) {
+  const div = document.createElement('div');
+  div.className = 'pair';
+  div.innerHTML = `<span class="word">${a}</span>${audio(`stimuli/${a}.wav`)}
+    <span class="sep">↔</span>
+    <span class="word">${b}</span>${audio(`stimuli/${b}.wav`)}`;
+  return div;
+}
+
+function single(word, src) {
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = `<span class="word">${word}</span>${audio(src)}`;
+  return div;
+}
+
+PAIRS.forEach(([a,b]) => document.getElementById('pairs').appendChild(pair(a,b)));
+CCCVC_PAIRS.forEach(([a,b]) => document.getElementById('cccvc_pairs').appendChild(pair(a,b)));
+VCCC.forEach(w => document.getElementById('vccc').appendChild(single(w, `stimuli/${w}.wav`)));
+DIGITS.forEach(n => document.getElementById('digits').appendChild(
+  single(['','one','two','three','four','five','six','seven','eight','nine'][n],
+         `stimuli/digit_${n}.wav`)));
+</script>
+</body>
+</html>
