@@ -67,7 +67,7 @@ export const CCCVC_ITEMS = CCCVC_PAIRS.flatMap(p => [
 
 // ── VCCC gradient anchor ────────────────────────────────────────────────────
 // All-obstruent 3-C codas: {k,s,t} → ekst/ekts/eskt; {s,p,t} → espt/epts/epst
-export const VCCC_ITEMS = ['ekst', 'ekts', 'eskt', 'espt', 'epts', 'epst'].map(id => ({
+export const VCCC_ITEMS = ['ekst', 'espt', 'epts', 'epst'].map(id => ({
   id, foil: null, condition: 'VCCC', onset_n: 0, coda_n: 3,
   audio: `${BASE}stimuli/${id}.wav`,
 }));
