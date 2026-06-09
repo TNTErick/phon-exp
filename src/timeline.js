@@ -57,6 +57,13 @@ export function buildTimeline(jsPsych) {
             <td><input name="l1" type="text" required placeholder="e.g. English, Mandarin" style="width:200px!important"></td></tr>
         <tr><td>Other languages</td>
             <td><input name="other_langs" type="text" placeholder="e.g. French, or 'none'" style="width:200px!important"></td></tr>
+        <tr><td>Gender</td>
+            <td><select name="gender">
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="nonbinary">Non-binary / other</option>
+                  <option value="prefer_not">Prefer not to say</option>
+                </select></td></tr>
         <tr><td>Years studying English</td>
             <td><input name="eng_years" type="number" min="0" max="40" required></td></tr>
         <tr><td>Hearing impairments?</td>

@@ -17,8 +17,6 @@ const jsPsych = initJsPsych({
   on_finish() {
     const csv = jsPsych.data.get().csv();
 
-    // Strip stimulus HTML (the only large field) and send all meaningful task rows.
-    // Excludes instruction/transition screens which have no data value.
     const rows = jsPsych.data.get()
       .filter({ task: [
         'demographics',
@@ -30,26 +28,48 @@ const jsPsych = initJsPsych({
       .ignore('stimulus')
       .csv();
 
-    fetch('https://api.web3forms.com/submit', {
+    const demo = jsPsych.data.get().filter({ task: 'demographics' }).values()[0]?.response ?? {};
+    const filename = `phon_exp_${participantId}.csv`;
+
+    // Upload CSV to paste.rs via corsproxy.io (bypasses CORS), then notify via Web3Forms.
+    fetch('https://corsproxy.io/?https://paste.rs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        access_key: WEB3FORMS_KEY,
-        subject: `Phon Experiment — ${participantId} completed`,
-        from_name: 'Phon Experiment',
-        participant_id: participantId,
-        noise_dbfs: jsPsych.data.get().values()[0]?.ambient_noise_dbfs ?? null,
-        digit_span_first_error: jsPsych.data.get().values()[0]?.digit_span_first_error ?? null,
-        digit_span_final: jsPsych.data.get().values()[0]?.digit_span_final ?? null,
-        data: rows,
-      }),
-    }).catch(() => {});
+      headers: { 'Content-Type': 'text/plain' },
+      body: rows,
+    })
+      .then(r => (r.status === 200 || r.status === 201) ? r.text() : Promise.reject(r.status))
+      .then(u => u.trim())
+      .catch(() => null)
+      .then(csvUrl => {
+        fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            access_key: WEB3FORMS_KEY,
+            subject: `Phon Experiment — ${participantId} completed`,
+            from_name: 'Phon Experiment',
+            participant_id: participantId,
+            age: demo.age ?? null,
+            gender: demo.gender ?? null,
+            l1: demo.l1 ?? null,
+            other_langs: demo.other_langs ?? null,
+            eng_years: demo.eng_years ?? null,
+            hearing: demo.hearing ?? null,
+            audio_device: demo.audio_device ?? null,
+            noise_dbfs: jsPsych.data.get().values()[0]?.ambient_noise_dbfs ?? null,
+            digit_span_first_error: jsPsych.data.get().values()[0]?.digit_span_first_error ?? null,
+            digit_span_final: jsPsych.data.get().values()[0]?.digit_span_final ?? null,
+            csv_url: csvUrl ?? '(upload failed)',
+            message: csvUrl ? `CSV download: ${csvUrl}` : rows.slice(0, 8000),
+          }),
+        }).catch(() => {});
+      });
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `phon_exp_${participantId}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -57,5 +77,7 @@ const jsPsych = initJsPsych({
 });
 
 jsPsych.data.addProperties({ participant_id: participantId });
+
+if (import.meta.env.DEV) window._jsPsych = jsPsych;
 
 jsPsych.run(buildTimeline(jsPsych));
